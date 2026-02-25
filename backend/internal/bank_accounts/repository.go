@@ -12,10 +12,11 @@ type Repository interface {
 	CreatePlaidItem(ctx context.Context, params sqlcdb.CreatePlaidItemParams) (sqlcdb.PlaidItem, error)
 	CreateBankAccount(ctx context.Context, params sqlcdb.CreateBankAccountParams) (BankAccount, error)
 	GetByUserID(ctx context.Context, userID uuid.UUID) ([]BankAccount, error)
-	GetByID(ctx context.Context, id uuid.UUID) (BankAccount, error)
+	GetAccountByID(ctx context.Context, id uuid.UUID) (BankAccount, error)
 	GetByPlaidAccountID(ctx context.Context, plaidAccountID string) (BankAccount, error)
 	GetPlaidItemByPlaidItemID(ctx context.Context, plaidItemID string) (sqlcdb.PlaidItem, error)
 	UpdateBalance(ctx context.Context, params sqlcdb.UpdateBankAccountBalanceParams) error
+	UpsertBankAccount(ctx context.Context, params sqlcdb.UpsertBankAccountParams) (BankAccount, error)
 }
 
 type repository struct {
@@ -29,6 +30,14 @@ func NewRepository(q *sqlcdb.Queries) Repository {
 
 func (r *repository) CreatePlaidItem(ctx context.Context, params sqlcdb.CreatePlaidItemParams) (sqlcdb.PlaidItem, error) {
 	return r.q.CreatePlaidItem(ctx, params)
+}
+
+func (r *repository) UpsertBankAccount(ctx context.Context, params sqlcdb.UpsertBankAccountParams) (BankAccount, error) {
+	row, err := r.q.UpsertBankAccount(ctx, params)
+	if err != nil {
+		return BankAccount{}, err
+	}
+	return toBankAccount(row), nil
 }
 
 func (r *repository) CreateBankAccount(ctx context.Context, params sqlcdb.CreateBankAccountParams) (BankAccount, error) {
@@ -51,7 +60,7 @@ func (r *repository) GetByUserID(ctx context.Context, userID uuid.UUID) ([]BankA
 	return accounts, nil
 }
 
-func (r *repository) GetByID(ctx context.Context, id uuid.UUID) (BankAccount, error) {
+func (r *repository) GetAccountByID(ctx context.Context, id uuid.UUID) (BankAccount, error) {
 	row, err := r.q.GetBankAccountByID(ctx, id)
 	if err != nil {
 		return BankAccount{}, err

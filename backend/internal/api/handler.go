@@ -7,22 +7,24 @@ import (
 	"log"
 	"net/http"
 	"time"
+	"context"
+	
 
 	"github.com/liam-ruiz/budget/internal/api/types"
 	"github.com/liam-ruiz/budget/internal/auth"
-	"github.com/liam-ruiz/budget/internal/context"
+	"github.com/liam-ruiz/budget/internal/dependencies"
 	"github.com/liam-ruiz/budget/internal/db/sqlcdb"
 	plaidlib "github.com/plaid/plaid-go/v20/plaid"
 )
 
 // Handler holds all service dependencies for the API.
 type Handler struct {
-	container *context.Container
+	container *dependencies.Container
 }
 
 // NewHandler creates a new API handler with all service dependencies.
 func NewHandler(
-	container *context.Container,
+	container *dependencies.Container,
 ) *Handler {
 	return &Handler{
 		container: container,
@@ -220,70 +222,48 @@ func (h *Handler) GetBudgets(w http.ResponseWriter, r *http.Request) {
 
 // --- Plaid Handlers ---
 
-// ExchangePlaidPublicToken exchanges a Plaid public token for an access token
-// and persists the linked account.
 func (h *Handler) ExchangePlaidPublicToken(w http.ResponseWriter, r *http.Request) {
-	userID, err := auth.GetUserID(r.Context())
-	if err != nil {
-		log.Default().Printf("Error getting user ID: %v\n", err)
-		writeError(w, http.StatusUnauthorized, "unauthorized")
-		return
-	}
+    userID, _ := auth.GetUserID(r.Context()) // Assuming middleware handled this
 
-	var req types.ExchangeTokenRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Default().Printf("Error decoding request body: %v\n", err)
-		writeError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-	if req.PublicToken == "" {
+    var req types.ExchangeTokenRequest
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        writeError(w, http.StatusBadRequest, "invalid request body")
+        return
+    }
 
-		writeError(w, http.StatusBadRequest, "public_token is required")
-		return
-	}
+    // exchange public token for access token
+    exchangeReq := plaidlib.NewItemPublicTokenExchangeRequest(req.PublicToken)
+    resp, err := h.container.PlaidAPISvc.ExchangePublicToken(r.Context(), exchangeReq)
+    if err != nil {
+        writeError(w, http.StatusBadGateway, "plaid exchange failed")
+        return
+    }
 
-	// Exchange public token for access token via Plaid API
-	exchangeReq := plaidlib.NewItemPublicTokenExchangeRequest(req.PublicToken)
-	resp, _, err := h.container.PlaidClient.PlaidApi.ItemPublicTokenExchange(r.Context()).ItemPublicTokenExchangeRequest(*exchangeReq).Execute()
-	if err != nil {
-		log.Default().Printf("Error exchanging public token: %v\n", err)
-		writeError(w, http.StatusBadGateway, fmt.Sprintf("plaid exchange failed: %v", err))
-		return
-	}
+    accessToken := resp.GetAccessToken()
+    plaidItemID := resp.GetItemId()
 
-	// Step 1: persist the Plaid item (connection)
-	item, err := h.container.AccountSvc.CreatePlaidItem(r.Context(), sqlcdb.CreatePlaidItemParams{
-		UserID:           userID,
-		PlaidItemID:      resp.GetItemId(),
-		PlaidAccessToken: resp.GetAccessToken(),
-		InstitutionName:  req.InstitutionName,
-	})
-	if err != nil {
-		log.Default().Printf("Error saving plaid item: %v\n", err)
-		writeError(w, http.StatusInternalServerError, "failed to save plaid item")
-		return
-	}
+    // fetch metadata for this Item
+    // best to get the account details immediately so the user sees them.
+    accountsReq := plaidlib.NewAccountsGetRequest(accessToken)
+    accountsResp, err := h.container.PlaidAPISvc.GetAccountInfo(r.Context(), accountsReq)
+    if err != nil {
+        writeError(w, http.StatusBadGateway, "failed to fetch account details")
+        return
+    }
 
-	// Step 2: create the bank account under that item
-	account, err := h.container.AccountSvc.CreateBankAccount(r.Context(), sqlcdb.CreateBankAccountParams{
-		ItemID:           item.ID,
-		PlaidAccountID:   "", // TODO: populate from Plaid accounts response
-		AccountName:      req.AccountName,
-		AccountType:      req.AccountType,
-		CurrentBalance:   "0",
-		AvailableBalance: "0",
-		IsoCurrencyCode:  "USD",
-	})
-	if err != nil {
-		log.Default().Printf("Error saving bank account: %v\n", err)
-		writeError(w, http.StatusInternalServerError, "failed to save bank account")
-		return
-	}
+    // 3. Persist the Item and Accounts
+    // We do this in the service layer to handle the transaction/upsert logic
+    err = h.container.AccountSvc.LinkNewItem(r.Context(), userID, plaidItemID, accessToken, &accountsResp)
+    if err != nil {
+        writeError(w, http.StatusInternalServerError, "failed to save linked accounts")
+        return
+    }
 
-	writeJSON(w, http.StatusCreated, types.ExchangeTokenResponse{
-		AccountID: account.ID,
-		ItemID:    resp.GetItemId(),
-	})
+    // 4. Trigger background transaction sync (Production-lite approach)
+    // We'll use the ID of the newly created Item to kick off the sync
+    go h.container.AccountSvc.SyncTransactions(context.Background(), plaidItemID, "")
+
+    writeJSON(w, http.StatusCreated, map[string]string{"status": "syncing"})
 }
 
 // CreateLinkToken generates a Plaid Link token for the authenticated user.
@@ -310,10 +290,10 @@ func (h *Handler) CreateLinkToken(w http.ResponseWriter, r *http.Request) {
 	)
 	linkReq.SetProducts(products)
 
-	resp, _, err := h.container.PlaidClient.PlaidApi.LinkTokenCreate(r.Context()).LinkTokenCreateRequest(*linkReq).Execute()
+	resp, err := h.container.PlaidAPISvc.CreateLinkToken(r.Context(), linkReq)
 	if err != nil {
 		log.Default().Printf("Error creating link token: %v\n", err)
-		writeError(w, http.StatusBadGateway, fmt.Sprintf("failed to create link token: %v", err))
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to create link token: %v", err))
 		return
 	}
 

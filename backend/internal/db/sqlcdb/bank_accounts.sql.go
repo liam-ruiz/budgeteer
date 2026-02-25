@@ -235,3 +235,81 @@ func (q *Queries) UpdateBankAccountBalance(ctx context.Context, arg UpdateBankAc
 	_, err := q.db.ExecContext(ctx, updateBankAccountBalance, arg.ID, arg.CurrentBalance, arg.AvailableBalance)
 	return err
 }
+
+const upsertBankAccount = `-- name: UpsertBankAccount :one
+INSERT INTO
+    bank_accounts (
+        item_id,
+        plaid_account_id,
+        account_name,
+        official_name,
+        account_type,
+        account_subtype,
+        current_balance,
+        available_balance,
+        iso_currency_code
+    )
+VALUES (
+        $1,
+        $2,
+        $3,
+        $4,
+        $5,
+        $6,
+        $7,
+        $8,
+        $9
+    )
+ON CONFLICT (plaid_account_id) DO UPDATE
+    SET
+        account_name = $3,
+        official_name = $4,
+        account_type = $5,
+        account_subtype = $6,
+        current_balance = $7,
+        available_balance = $8,
+        iso_currency_code = $9
+RETURNING
+    id, item_id, plaid_account_id, account_name, official_name, account_type, account_subtype, current_balance, available_balance, iso_currency_code, updated_at
+`
+
+type UpsertBankAccountParams struct {
+	ItemID           uuid.UUID
+	PlaidAccountID   string
+	AccountName      string
+	OfficialName     sql.NullString
+	AccountType      string
+	AccountSubtype   sql.NullString
+	CurrentBalance   string
+	AvailableBalance string
+	IsoCurrencyCode  string
+}
+
+func (q *Queries) UpsertBankAccount(ctx context.Context, arg UpsertBankAccountParams) (BankAccount, error) {
+	row := q.db.QueryRowContext(ctx, upsertBankAccount,
+		arg.ItemID,
+		arg.PlaidAccountID,
+		arg.AccountName,
+		arg.OfficialName,
+		arg.AccountType,
+		arg.AccountSubtype,
+		arg.CurrentBalance,
+		arg.AvailableBalance,
+		arg.IsoCurrencyCode,
+	)
+	var i BankAccount
+	err := row.Scan(
+		&i.ID,
+		&i.ItemID,
+		&i.PlaidAccountID,
+		&i.AccountName,
+		&i.OfficialName,
+		&i.AccountType,
+		&i.AccountSubtype,
+		&i.CurrentBalance,
+		&i.AvailableBalance,
+		&i.IsoCurrencyCode,
+		&i.UpdatedAt,
+	)
+	return i, err
+}

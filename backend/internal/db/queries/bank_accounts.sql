@@ -25,6 +25,43 @@ VALUES (
 RETURNING
     *;
 
+
+-- name: UpsertBankAccount :one
+INSERT INTO
+    bank_accounts (
+        item_id,
+        plaid_account_id,
+        account_name,
+        official_name,
+        account_type,
+        account_subtype,
+        current_balance,
+        available_balance,
+        iso_currency_code
+    )
+VALUES (
+        $1,
+        $2,
+        $3,
+        $4,
+        $5,
+        $6,
+        $7,
+        $8,
+        $9
+    )
+ON CONFLICT (plaid_account_id) DO UPDATE
+    SET
+        account_name = $3,
+        official_name = $4,
+        account_type = $5,
+        account_subtype = $6,
+        current_balance = $7,
+        available_balance = $8,
+        iso_currency_code = $9
+RETURNING
+    *;
+
 -- name: GetBankAccountsByItemID :many
 SELECT *
 FROM bank_accounts
