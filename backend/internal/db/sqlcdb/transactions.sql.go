@@ -7,38 +7,41 @@ package sqlcdb
 
 import (
 	"context"
-	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createTransaction = `-- name: CreateTransaction :one
 INSERT INTO
     transactions (
-        account_id,
+        plaid_transaction_id,
+        plaid_account_id,
         transaction_date,
         transaction_name,
         category,
         amount,
         pending
     )
-VALUES ($1, $2, $3, $4, $5, $6)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING
-    id, account_id, transaction_date, transaction_name, category, amount, pending, created_at
+    plaid_transaction_id, plaid_account_id, transaction_date, transaction_name, category, amount, pending, created_at
 `
 
 type CreateTransactionParams struct {
-	AccountID       uuid.UUID
-	TransactionDate time.Time
-	TransactionName string
-	Category        string
-	Amount          string
-	Pending         bool
+	PlaidTransactionID string
+	PlaidAccountID     string
+	TransactionDate    pgtype.Date
+	TransactionName    string
+	Category           string
+	Amount             pgtype.Numeric
+	Pending            bool
 }
 
 func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionParams) (Transaction, error) {
-	row := q.db.QueryRowContext(ctx, createTransaction,
-		arg.AccountID,
+	row := q.db.QueryRow(ctx, createTransaction,
+		arg.PlaidTransactionID,
+		arg.PlaidAccountID,
 		arg.TransactionDate,
 		arg.TransactionName,
 		arg.Category,
@@ -47,8 +50,8 @@ func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionPa
 	)
 	var i Transaction
 	err := row.Scan(
-		&i.ID,
-		&i.AccountID,
+		&i.PlaidTransactionID,
+		&i.PlaidAccountID,
 		&i.TransactionDate,
 		&i.TransactionName,
 		&i.Category,
@@ -59,16 +62,26 @@ func (q *Queries) CreateTransaction(ctx context.Context, arg CreateTransactionPa
 	return i, err
 }
 
+type CreateTransactionsParams struct {
+	PlaidTransactionID string
+	PlaidAccountID     string
+	TransactionDate    pgtype.Date
+	TransactionName    string
+	Category           string
+	Amount             pgtype.Numeric
+	Pending            bool
+}
+
 const getTransactionsByAccountID = `-- name: GetTransactionsByAccountID :many
-SELECT id, account_id, transaction_date, transaction_name, category, amount, pending, created_at
+SELECT plaid_transaction_id, plaid_account_id, transaction_date, transaction_name, category, amount, pending, created_at
 FROM transactions
 WHERE
-    account_id = $1
+    plaid_account_id = $1
 ORDER BY transaction_date DESC
 `
 
-func (q *Queries) GetTransactionsByAccountID(ctx context.Context, accountID uuid.UUID) ([]Transaction, error) {
-	rows, err := q.db.QueryContext(ctx, getTransactionsByAccountID, accountID)
+func (q *Queries) GetTransactionsByAccountID(ctx context.Context, plaidAccountID string) ([]Transaction, error) {
+	rows, err := q.db.Query(ctx, getTransactionsByAccountID, plaidAccountID)
 	if err != nil {
 		return nil, err
 	}
@@ -77,8 +90,8 @@ func (q *Queries) GetTransactionsByAccountID(ctx context.Context, accountID uuid
 	for rows.Next() {
 		var i Transaction
 		if err := rows.Scan(
-			&i.ID,
-			&i.AccountID,
+			&i.PlaidTransactionID,
+			&i.PlaidAccountID,
 			&i.TransactionDate,
 			&i.TransactionName,
 			&i.Category,
@@ -89,9 +102,6 @@ func (q *Queries) GetTransactionsByAccountID(ctx context.Context, accountID uuid
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -100,18 +110,18 @@ func (q *Queries) GetTransactionsByAccountID(ctx context.Context, accountID uuid
 }
 
 const getTransactionsByUserID = `-- name: GetTransactionsByUserID :many
-SELECT t.id, t.account_id, t.transaction_date, t.transaction_name, t.category, t.amount, t.pending, t.created_at
+SELECT t.plaid_transaction_id, t.plaid_account_id, t.transaction_date, t.transaction_name, t.category, t.amount, t.pending, t.created_at
 FROM
     transactions t
-    JOIN bank_accounts ba ON t.account_id = ba.id
-    JOIN plaid_items pi ON ba.item_id = pi.id
+    JOIN bank_accounts ba ON t.plaid_account_id = ba.plaid_account_id
+    JOIN plaid_items pli ON ba.plaid_item_id = pli.plaid_item_id
 WHERE
-    pi.user_id = $1
+    pli.app_user_id = $1
 ORDER BY t.transaction_date DESC
 `
 
-func (q *Queries) GetTransactionsByUserID(ctx context.Context, userID uuid.UUID) ([]Transaction, error) {
-	rows, err := q.db.QueryContext(ctx, getTransactionsByUserID, userID)
+func (q *Queries) GetTransactionsByUserID(ctx context.Context, appUserID uuid.UUID) ([]Transaction, error) {
+	rows, err := q.db.Query(ctx, getTransactionsByUserID, appUserID)
 	if err != nil {
 		return nil, err
 	}
@@ -120,8 +130,8 @@ func (q *Queries) GetTransactionsByUserID(ctx context.Context, userID uuid.UUID)
 	for rows.Next() {
 		var i Transaction
 		if err := rows.Scan(
-			&i.ID,
-			&i.AccountID,
+			&i.PlaidTransactionID,
+			&i.PlaidAccountID,
 			&i.TransactionDate,
 			&i.TransactionName,
 			&i.Category,
@@ -132,9 +142,6 @@ func (q *Queries) GetTransactionsByUserID(ctx context.Context, userID uuid.UUID)
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -145,15 +152,16 @@ func (q *Queries) GetTransactionsByUserID(ctx context.Context, userID uuid.UUID)
 const upsertTransaction = `-- name: UpsertTransaction :one
 INSERT INTO
     transactions (
-        account_id,
+        plaid_transaction_id,
+        plaid_account_id,
         transaction_date,
         transaction_name,
         category,
         amount,
         pending
     )
-VALUES ($1, $2, $3, $4, $5, $6)
-ON CONFLICT (id) DO
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+ON CONFLICT (plaid_transaction_id) DO
 UPDATE
 SET
     transaction_date = EXCLUDED.transaction_date,
@@ -162,21 +170,23 @@ SET
     amount = EXCLUDED.amount,
     pending = EXCLUDED.pending
 RETURNING
-    id, account_id, transaction_date, transaction_name, category, amount, pending, created_at
+    plaid_transaction_id, plaid_account_id, transaction_date, transaction_name, category, amount, pending, created_at
 `
 
 type UpsertTransactionParams struct {
-	AccountID       uuid.UUID
-	TransactionDate time.Time
-	TransactionName string
-	Category        string
-	Amount          string
-	Pending         bool
+	PlaidTransactionID string
+	PlaidAccountID     string
+	TransactionDate    pgtype.Date
+	TransactionName    string
+	Category           string
+	Amount             pgtype.Numeric
+	Pending            bool
 }
 
 func (q *Queries) UpsertTransaction(ctx context.Context, arg UpsertTransactionParams) (Transaction, error) {
-	row := q.db.QueryRowContext(ctx, upsertTransaction,
-		arg.AccountID,
+	row := q.db.QueryRow(ctx, upsertTransaction,
+		arg.PlaidTransactionID,
+		arg.PlaidAccountID,
 		arg.TransactionDate,
 		arg.TransactionName,
 		arg.Category,
@@ -185,8 +195,8 @@ func (q *Queries) UpsertTransaction(ctx context.Context, arg UpsertTransactionPa
 	)
 	var i Transaction
 	err := row.Scan(
-		&i.ID,
-		&i.AccountID,
+		&i.PlaidTransactionID,
+		&i.PlaidAccountID,
 		&i.TransactionDate,
 		&i.TransactionName,
 		&i.Category,

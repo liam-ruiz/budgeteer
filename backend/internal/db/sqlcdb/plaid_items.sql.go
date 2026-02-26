@@ -7,43 +7,42 @@ package sqlcdb
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createPlaidItem = `-- name: CreatePlaidItem :one
 INSERT INTO
     plaid_items (
-        user_id,
+        app_user_id,
         plaid_item_id,
         plaid_access_token,
         institution_name
     )
 VALUES ($1, $2, $3, $4)
 RETURNING
-    id, user_id, plaid_item_id, plaid_access_token, institution_name, plaid_cursor, last_synced_at, created_at, updated_at
+    plaid_item_id, app_user_id, plaid_access_token, institution_name, plaid_cursor, last_synced_at, created_at, updated_at
 `
 
 type CreatePlaidItemParams struct {
-	UserID           uuid.UUID
+	AppUserID        uuid.UUID
 	PlaidItemID      string
 	PlaidAccessToken string
 	InstitutionName  string
 }
 
 func (q *Queries) CreatePlaidItem(ctx context.Context, arg CreatePlaidItemParams) (PlaidItem, error) {
-	row := q.db.QueryRowContext(ctx, createPlaidItem,
-		arg.UserID,
+	row := q.db.QueryRow(ctx, createPlaidItem,
+		arg.AppUserID,
 		arg.PlaidItemID,
 		arg.PlaidAccessToken,
 		arg.InstitutionName,
 	)
 	var i PlaidItem
 	err := row.Scan(
-		&i.ID,
-		&i.UserID,
 		&i.PlaidItemID,
+		&i.AppUserID,
 		&i.PlaidAccessToken,
 		&i.InstitutionName,
 		&i.PlaidCursor,
@@ -55,16 +54,15 @@ func (q *Queries) CreatePlaidItem(ctx context.Context, arg CreatePlaidItemParams
 }
 
 const getPlaidItemByID = `-- name: GetPlaidItemByID :one
-SELECT id, user_id, plaid_item_id, plaid_access_token, institution_name, plaid_cursor, last_synced_at, created_at, updated_at FROM plaid_items WHERE id = $1
+SELECT plaid_item_id, app_user_id, plaid_access_token, institution_name, plaid_cursor, last_synced_at, created_at, updated_at FROM plaid_items WHERE plaid_item_id = $1
 `
 
-func (q *Queries) GetPlaidItemByID(ctx context.Context, id uuid.UUID) (PlaidItem, error) {
-	row := q.db.QueryRowContext(ctx, getPlaidItemByID, id)
+func (q *Queries) GetPlaidItemByID(ctx context.Context, plaidItemID string) (PlaidItem, error) {
+	row := q.db.QueryRow(ctx, getPlaidItemByID, plaidItemID)
 	var i PlaidItem
 	err := row.Scan(
-		&i.ID,
-		&i.UserID,
 		&i.PlaidItemID,
+		&i.AppUserID,
 		&i.PlaidAccessToken,
 		&i.InstitutionName,
 		&i.PlaidCursor,
@@ -76,16 +74,15 @@ func (q *Queries) GetPlaidItemByID(ctx context.Context, id uuid.UUID) (PlaidItem
 }
 
 const getPlaidItemByPlaidItemID = `-- name: GetPlaidItemByPlaidItemID :one
-SELECT id, user_id, plaid_item_id, plaid_access_token, institution_name, plaid_cursor, last_synced_at, created_at, updated_at FROM plaid_items WHERE plaid_item_id = $1 LIMIT 1
+SELECT plaid_item_id, app_user_id, plaid_access_token, institution_name, plaid_cursor, last_synced_at, created_at, updated_at FROM plaid_items WHERE plaid_item_id = $1 LIMIT 1
 `
 
 func (q *Queries) GetPlaidItemByPlaidItemID(ctx context.Context, plaidItemID string) (PlaidItem, error) {
-	row := q.db.QueryRowContext(ctx, getPlaidItemByPlaidItemID, plaidItemID)
+	row := q.db.QueryRow(ctx, getPlaidItemByPlaidItemID, plaidItemID)
 	var i PlaidItem
 	err := row.Scan(
-		&i.ID,
-		&i.UserID,
 		&i.PlaidItemID,
+		&i.AppUserID,
 		&i.PlaidAccessToken,
 		&i.InstitutionName,
 		&i.PlaidCursor,
@@ -97,15 +94,15 @@ func (q *Queries) GetPlaidItemByPlaidItemID(ctx context.Context, plaidItemID str
 }
 
 const getPlaidItemsByUserID = `-- name: GetPlaidItemsByUserID :many
-SELECT id, user_id, plaid_item_id, plaid_access_token, institution_name, plaid_cursor, last_synced_at, created_at, updated_at
+SELECT plaid_item_id, app_user_id, plaid_access_token, institution_name, plaid_cursor, last_synced_at, created_at, updated_at
 FROM plaid_items
 WHERE
-    user_id = $1
+    app_user_id = $1
 ORDER BY institution_name
 `
 
-func (q *Queries) GetPlaidItemsByUserID(ctx context.Context, userID uuid.UUID) ([]PlaidItem, error) {
-	rows, err := q.db.QueryContext(ctx, getPlaidItemsByUserID, userID)
+func (q *Queries) GetPlaidItemsByUserID(ctx context.Context, appUserID uuid.UUID) ([]PlaidItem, error) {
+	rows, err := q.db.Query(ctx, getPlaidItemsByUserID, appUserID)
 	if err != nil {
 		return nil, err
 	}
@@ -114,9 +111,8 @@ func (q *Queries) GetPlaidItemsByUserID(ctx context.Context, userID uuid.UUID) (
 	for rows.Next() {
 		var i PlaidItem
 		if err := rows.Scan(
-			&i.ID,
-			&i.UserID,
 			&i.PlaidItemID,
+			&i.AppUserID,
 			&i.PlaidAccessToken,
 			&i.InstitutionName,
 			&i.PlaidCursor,
@@ -127,9 +123,6 @@ func (q *Queries) GetPlaidItemsByUserID(ctx context.Context, userID uuid.UUID) (
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -144,15 +137,15 @@ SET
     last_synced_at = now(),
     updated_at = now()
 WHERE
-    id = $1
+    plaid_item_id = $1
 `
 
 type UpdatePlaidItemCursorParams struct {
-	ID          uuid.UUID
-	PlaidCursor sql.NullString
+	PlaidItemID string
+	PlaidCursor pgtype.Text
 }
 
 func (q *Queries) UpdatePlaidItemCursor(ctx context.Context, arg UpdatePlaidItemCursorParams) error {
-	_, err := q.db.ExecContext(ctx, updatePlaidItemCursor, arg.ID, arg.PlaidCursor)
+	_, err := q.db.Exec(ctx, updatePlaidItemCursor, arg.PlaidItemID, arg.PlaidCursor)
 	return err
 }

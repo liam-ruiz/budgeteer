@@ -2,9 +2,11 @@ package budgets
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/google/uuid"
 	"github.com/liam-ruiz/budget/internal/db/sqlcdb"
+	"github.com/liam-ruiz/budget/internal/util"
 )
 
 // Repository defines the interface for budget data access.
@@ -57,14 +59,25 @@ func (r *repository) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 func toBudget(row sqlcdb.Budget) Budget {
+	var endDate sql.NullTime
+	if !row.EndDate.Valid {
+		endDate = sql.NullTime{}
+	} else {
+		endDate = sql.NullTime{
+			Time: row.EndDate.Time,
+			Valid: true,
+		}
+	}
+
 	return Budget{
 		ID:          row.ID,
 		AppUserID:   row.AppUserID,
 		Category:    row.Category,
-		LimitAmount: row.LimitAmount,
+		LimitAmount: util.NumericToString(row.LimitAmount),
 		Period:      row.BudgetPeriod,
-		StartDate:   row.StartDate,
-		EndDate:     row.EndDate,
-		CreatedAt:   row.CreatedAt,
-	}
+		StartDate:   row.StartDate.Time,
+		EndDate:     endDate,
+		CreatedAt:   row.CreatedAt.Time,
+	}	
+	
 }

@@ -5,13 +5,15 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/liam-ruiz/budget/internal/db/sqlcdb"
+	"github.com/liam-ruiz/budget/internal/util"
 )
 
 // Repository defines the interface for transaction data access.
 type Repository interface {
 	Create(ctx context.Context, params sqlcdb.CreateTransactionParams) (Transaction, error)
-	GetByAccountID(ctx context.Context, accountID uuid.UUID) ([]Transaction, error)
-	GetByUserID(ctx context.Context, userID uuid.UUID) ([]Transaction, error)
+	CreateMany(ctx context.Context, params []sqlcdb.CreateTransactionsParams) error
+	GetByAccountID(ctx context.Context, plaidAccountID string) ([]Transaction, error)
+	GetByUserID(ctx context.Context, appUserID uuid.UUID) ([]Transaction, error)
 }
 
 type repository struct {
@@ -31,8 +33,8 @@ func (r *repository) Create(ctx context.Context, params sqlcdb.CreateTransaction
 	return toTransaction(row), nil
 }
 
-func (r *repository) GetByAccountID(ctx context.Context, accountID uuid.UUID) ([]Transaction, error) {
-	rows, err := r.q.GetTransactionsByAccountID(ctx, accountID)
+func (r *repository) GetByAccountID(ctx context.Context, plaidAccountID string) ([]Transaction, error) {
+	rows, err := r.q.GetTransactionsByAccountID(ctx, plaidAccountID)
 	if err != nil {
 		return nil, err
 	}
@@ -47,16 +49,21 @@ func (r *repository) GetByUserID(ctx context.Context, userID uuid.UUID) ([]Trans
 	return toTransactions(rows), nil
 }
 
+func (r *repository) CreateMany(ctx context.Context, update []sqlcdb.CreateTransactionsParams) error {
+	r.q.CreateTransactions(ctx, update)
+	return nil
+}
+
 func toTransaction(row sqlcdb.Transaction) Transaction {
 	return Transaction{
-		ID:        row.ID,
-		AccountID: row.AccountID,
-		Date:      row.TransactionDate,
-		Name:      row.TransactionName,
-		Category:  row.Category,
-		Amount:    row.Amount,
-		Pending:   row.Pending,
-		CreatedAt: row.CreatedAt,
+		PlaidTransactionID: row.PlaidTransactionID,
+		AccountID:          row.PlaidAccountID,
+		Date:               row.TransactionDate.Time.Format("2006-01-02"),
+		Name:               row.TransactionName,
+		Category:           row.Category,
+		Amount:             util.NumericToString(row.Amount),
+		Pending:            row.Pending,
+		CreatedAt:          row.CreatedAt.Time,
 	}
 }
 

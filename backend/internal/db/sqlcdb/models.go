@@ -5,63 +5,59 @@
 package sqlcdb
 
 import (
-	"database/sql"
-	"time"
-
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type BankAccount struct {
-	ID               uuid.UUID
-	ItemID           uuid.UUID
 	PlaidAccountID   string
+	PlaidItemID      string
 	AccountName      string
-	OfficialName     sql.NullString
+	OfficialName     pgtype.Text
 	AccountType      string
-	AccountSubtype   sql.NullString
-	CurrentBalance   string
-	AvailableBalance string
+	AccountSubtype   pgtype.Text
+	CurrentBalance   pgtype.Numeric
+	AvailableBalance pgtype.Numeric
 	IsoCurrencyCode  string
-	UpdatedAt        time.Time
+	UpdatedAt        pgtype.Timestamptz
 }
 
 type Budget struct {
 	ID           uuid.UUID
 	AppUserID    uuid.UUID
 	Category     string
-	LimitAmount  string
+	LimitAmount  pgtype.Numeric
 	BudgetPeriod string
-	StartDate    time.Time
-	EndDate      sql.NullTime
-	CreatedAt    time.Time
+	StartDate    pgtype.Date
+	EndDate      pgtype.Date
+	CreatedAt    pgtype.Timestamptz
 }
 
 type PlaidItem struct {
-	ID               uuid.UUID
-	UserID           uuid.UUID
 	PlaidItemID      string
+	AppUserID        uuid.UUID
 	PlaidAccessToken string
 	InstitutionName  string
-	PlaidCursor      sql.NullString
-	LastSyncedAt     sql.NullTime
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
+	PlaidCursor      pgtype.Text
+	LastSyncedAt     pgtype.Timestamptz
+	CreatedAt        pgtype.Timestamptz
+	UpdatedAt        pgtype.Timestamptz
 }
 
 type Transaction struct {
-	ID              uuid.UUID
-	AccountID       uuid.UUID
-	TransactionDate time.Time
-	TransactionName string
-	Category        string
-	Amount          string
-	Pending         bool
-	CreatedAt       time.Time
+	PlaidTransactionID string
+	PlaidAccountID     string
+	TransactionDate    pgtype.Date
+	TransactionName    string
+	Category           string
+	Amount             pgtype.Numeric
+	Pending            bool
+	CreatedAt          pgtype.Timestamptz
 }
 
 type User struct {
 	ID           uuid.UUID
 	Email        string
 	PasswordHash string
-	CreatedAt    time.Time
+	CreatedAt    pgtype.Timestamptz
 }

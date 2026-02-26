@@ -7,10 +7,9 @@ package sqlcdb
 
 import (
 	"context"
-	"database/sql"
-	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createBudget = `-- name: CreateBudget :one
@@ -31,14 +30,14 @@ RETURNING
 type CreateBudgetParams struct {
 	AppUserID    uuid.UUID
 	Category     string
-	LimitAmount  string
+	LimitAmount  pgtype.Numeric
 	BudgetPeriod string
-	StartDate    time.Time
-	EndDate      sql.NullTime
+	StartDate    pgtype.Date
+	EndDate      pgtype.Date
 }
 
 func (q *Queries) CreateBudget(ctx context.Context, arg CreateBudgetParams) (Budget, error) {
-	row := q.db.QueryRowContext(ctx, createBudget,
+	row := q.db.QueryRow(ctx, createBudget,
 		arg.AppUserID,
 		arg.Category,
 		arg.LimitAmount,
@@ -65,7 +64,7 @@ DELETE FROM budgets WHERE id = $1
 `
 
 func (q *Queries) DeleteBudget(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, deleteBudget, id)
+	_, err := q.db.Exec(ctx, deleteBudget, id)
 	return err
 }
 
@@ -74,7 +73,7 @@ SELECT id, app_user_id, category, limit_amount, budget_period, start_date, end_d
 `
 
 func (q *Queries) GetBudgetByID(ctx context.Context, id uuid.UUID) (Budget, error) {
-	row := q.db.QueryRowContext(ctx, getBudgetByID, id)
+	row := q.db.QueryRow(ctx, getBudgetByID, id)
 	var i Budget
 	err := row.Scan(
 		&i.ID,
@@ -94,7 +93,7 @@ SELECT id, app_user_id, category, limit_amount, budget_period, start_date, end_d
 `
 
 func (q *Queries) GetBudgetsByUserID(ctx context.Context, appUserID uuid.UUID) ([]Budget, error) {
-	rows, err := q.db.QueryContext(ctx, getBudgetsByUserID, appUserID)
+	rows, err := q.db.Query(ctx, getBudgetsByUserID, appUserID)
 	if err != nil {
 		return nil, err
 	}
@@ -115,9 +114,6 @@ func (q *Queries) GetBudgetsByUserID(ctx context.Context, appUserID uuid.UUID) (
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

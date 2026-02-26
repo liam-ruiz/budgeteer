@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/liam-ruiz/budget/internal/db/sqlcdb"
 )
 
@@ -12,11 +13,11 @@ type Repository interface {
 	CreatePlaidItem(ctx context.Context, params sqlcdb.CreatePlaidItemParams) (sqlcdb.PlaidItem, error)
 	CreateBankAccount(ctx context.Context, params sqlcdb.CreateBankAccountParams) (BankAccount, error)
 	GetByUserID(ctx context.Context, userID uuid.UUID) ([]BankAccount, error)
-	GetAccountByID(ctx context.Context, id uuid.UUID) (BankAccount, error)
 	GetByPlaidAccountID(ctx context.Context, plaidAccountID string) (BankAccount, error)
 	GetPlaidItemByPlaidItemID(ctx context.Context, plaidItemID string) (sqlcdb.PlaidItem, error)
 	UpdateBalance(ctx context.Context, params sqlcdb.UpdateBankAccountBalanceParams) error
 	UpsertBankAccount(ctx context.Context, params sqlcdb.UpsertBankAccountParams) (BankAccount, error)
+	UpdateCursor(ctx context.Context, plaidItemID string, cursor string) error
 }
 
 type repository struct {
@@ -60,13 +61,6 @@ func (r *repository) GetByUserID(ctx context.Context, userID uuid.UUID) ([]BankA
 	return accounts, nil
 }
 
-func (r *repository) GetAccountByID(ctx context.Context, id uuid.UUID) (BankAccount, error) {
-	row, err := r.q.GetBankAccountByID(ctx, id)
-	if err != nil {
-		return BankAccount{}, err
-	}
-	return toBankAccount(row), nil
-}
 
 func (r *repository) GetByPlaidAccountID(ctx context.Context, plaidAccountID string) (BankAccount, error) {
 	row, err := r.q.GetBankAccountByPlaidAccountID(ctx, plaidAccountID)
@@ -86,8 +80,7 @@ func (r *repository) UpdateBalance(ctx context.Context, params sqlcdb.UpdateBank
 
 func toBankAccount(row sqlcdb.BankAccount) BankAccount {
 	return BankAccount{
-		ID:               row.ID,
-		ItemID:           row.ItemID,
+		PlaidItemID:      row.PlaidItemID,
 		PlaidAccountID:   row.PlaidAccountID,
 		AccountName:      row.AccountName,
 		OfficialName:     row.OfficialName,
@@ -96,6 +89,15 @@ func toBankAccount(row sqlcdb.BankAccount) BankAccount {
 		CurrentBalance:   row.CurrentBalance,
 		AvailableBalance: row.AvailableBalance,
 		IsoCurrencyCode:  row.IsoCurrencyCode,
-		UpdatedAt:        row.UpdatedAt,
+		UpdatedAt:        row.UpdatedAt.Time,
 	}
 }
+
+func (r *repository) UpdateCursor(ctx context.Context, plaidItemID string, cursor string) error {
+	valid := cursor != ""
+	return r.q.UpdatePlaidItemCursor(ctx, sqlcdb.UpdatePlaidItemCursorParams{
+		PlaidItemID: plaidItemID,
+		PlaidCursor: pgtype.Text{String: cursor, Valid: valid},
+	})
+}
+

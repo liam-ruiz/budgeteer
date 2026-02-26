@@ -1,7 +1,7 @@
 -- name: CreatePlaidItem :one
 INSERT INTO
     plaid_items (
-        user_id,
+        app_user_id,
         plaid_item_id,
         plaid_access_token,
         institution_name
@@ -14,11 +14,11 @@ RETURNING
 SELECT *
 FROM plaid_items
 WHERE
-    user_id = $1
+    app_user_id = $1
 ORDER BY institution_name;
 
 -- name: GetPlaidItemByID :one
-SELECT * FROM plaid_items WHERE id = $1;
+SELECT * FROM plaid_items WHERE plaid_item_id = $1;
 
 -- name: GetPlaidItemByPlaidItemID :one
 SELECT * FROM plaid_items WHERE plaid_item_id = $1 LIMIT 1;
@@ -30,4 +30,4 @@ SET
     last_synced_at = now(),
     updated_at = now()
 WHERE
-    id = $1;
+    plaid_item_id = $1;

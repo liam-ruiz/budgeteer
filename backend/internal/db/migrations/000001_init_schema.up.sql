@@ -9,9 +9,8 @@ CREATE TABLE users (
 
 -- a single plaid connection
 CREATE TABLE plaid_items (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    plaid_item_id TEXT NOT NULL UNIQUE,
+    plaid_item_id TEXT PRIMARY KEY,
+    app_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     plaid_access_token TEXT NOT NULL, -- encrypted or handled by Secrets Manager
     institution_name TEXT NOT NULL,
     plaid_cursor TEXT,                -- the bookmark for /transactions/sync
@@ -22,9 +21,8 @@ CREATE TABLE plaid_items (
 
 -- the actual
 CREATE TABLE bank_accounts (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    item_id UUID NOT NULL REFERENCES plaid_items(id) ON DELETE CASCADE,
-    plaid_account_id TEXT NOT NULL UNIQUE,
+    plaid_account_id TEXT PRIMARY KEY,
+    plaid_item_id TEXT NOT NULL REFERENCES plaid_items(plaid_item_id) ON DELETE CASCADE,
     account_name TEXT NOT NULL,
     official_name TEXT,
     account_type TEXT NOT NULL,               -- e.g., 'depository', 'credit'
@@ -36,8 +34,8 @@ CREATE TABLE bank_accounts (
 );
 
 CREATE TABLE transactions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
-    account_id UUID NOT NULL REFERENCES bank_accounts (id) ON DELETE CASCADE,
+    plaid_transaction_id TEXT PRIMARY KEY,
+    plaid_account_id TEXT NOT NULL REFERENCES bank_accounts (plaid_account_id) ON DELETE CASCADE,
     transaction_date DATE NOT NULL,
     transaction_name TEXT NOT NULL,
     category TEXT NOT NULL DEFAULT '',

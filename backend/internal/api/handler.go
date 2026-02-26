@@ -1,19 +1,21 @@
 package api
 
 import (
-	"database/sql"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/big"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
-	"context"
-	
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/liam-ruiz/budget/internal/api/types"
 	"github.com/liam-ruiz/budget/internal/auth"
-	"github.com/liam-ruiz/budget/internal/dependencies"
 	"github.com/liam-ruiz/budget/internal/db/sqlcdb"
+	"github.com/liam-ruiz/budget/internal/dependencies"
 	plaidlib "github.com/plaid/plaid-go/v20/plaid"
 )
 
@@ -172,13 +174,21 @@ func (h *Handler) CreateBudget(w http.ResponseWriter, r *http.Request) {
 	if period == "" {
 		period = "monthly"
 	}
-
+	// parse limit amount ("10.00" -> 1000 to be used for Numeric)
+	combined := strings.ReplaceAll(req.LimitAmount, ".", "")
+	limitAmount, err := strconv.Atoi(combined)
+	if err != nil {
+		log.Default().Printf("Error parsing limit amount: %v\n", err)
+		writeError(w, http.StatusBadRequest, "limit_amount must be a valid number")
+		return
+	}
+	
 	params := sqlcdb.CreateBudgetParams{
 		AppUserID:    userID,
 		Category:     req.Category,
-		LimitAmount:  req.LimitAmount,
+		LimitAmount:  pgtype.Numeric{Valid: true, Int: big.NewInt(int64(limitAmount))},
 		BudgetPeriod: period,
-		StartDate:    startDate,
+		StartDate:    pgtype.Date{Time: startDate, Valid: true},
 	}
 
 	if req.EndDate != nil {
@@ -188,7 +198,7 @@ func (h *Handler) CreateBudget(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "end_date must be in YYYY-MM-DD format")
 			return
 		}
-		params.EndDate = sql.NullTime{Time: endDate, Valid: true}
+		params.EndDate = pgtype.Date{Time: endDate, Valid: true}
 	}
 
 	budget, err := h.container.BudgetSvc.CreateBudget(r.Context(), params)
@@ -251,7 +261,7 @@ func (h *Handler) ExchangePlaidPublicToken(w http.ResponseWriter, r *http.Reques
         return
     }
 
-    // 3. Persist the Item and Accounts
+    // persist the Item and Accounts
     // We do this in the service layer to handle the transaction/upsert logic
     err = h.container.AccountSvc.LinkNewItem(r.Context(), userID, plaidItemID, accessToken, &accountsResp)
     if err != nil {
@@ -259,8 +269,8 @@ func (h *Handler) ExchangePlaidPublicToken(w http.ResponseWriter, r *http.Reques
         return
     }
 
-    // 4. Trigger background transaction sync (Production-lite approach)
-    // We'll use the ID of the newly created Item to kick off the sync
+    // trigger background transaction sync (Production-lite approach)
+    // empty string for cursor means we want to sync all available transactions
     go h.container.AccountSvc.SyncTransactions(context.Background(), plaidItemID, "")
 
     writeJSON(w, http.StatusCreated, map[string]string{"status": "syncing"})

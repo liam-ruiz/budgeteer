@@ -7,16 +7,16 @@ package sqlcdb
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createBankAccount = `-- name: CreateBankAccount :one
 INSERT INTO
     bank_accounts (
-        item_id,
         plaid_account_id,
+        plaid_item_id,
         account_name,
         official_name,
         account_type,
@@ -37,25 +37,25 @@ VALUES (
         $9
     )
 RETURNING
-    id, item_id, plaid_account_id, account_name, official_name, account_type, account_subtype, current_balance, available_balance, iso_currency_code, updated_at
+    plaid_account_id, plaid_item_id, account_name, official_name, account_type, account_subtype, current_balance, available_balance, iso_currency_code, updated_at
 `
 
 type CreateBankAccountParams struct {
-	ItemID           uuid.UUID
 	PlaidAccountID   string
+	PlaidItemID      string
 	AccountName      string
-	OfficialName     sql.NullString
+	OfficialName     pgtype.Text
 	AccountType      string
-	AccountSubtype   sql.NullString
-	CurrentBalance   string
-	AvailableBalance string
+	AccountSubtype   pgtype.Text
+	CurrentBalance   pgtype.Numeric
+	AvailableBalance pgtype.Numeric
 	IsoCurrencyCode  string
 }
 
 func (q *Queries) CreateBankAccount(ctx context.Context, arg CreateBankAccountParams) (BankAccount, error) {
-	row := q.db.QueryRowContext(ctx, createBankAccount,
-		arg.ItemID,
+	row := q.db.QueryRow(ctx, createBankAccount,
 		arg.PlaidAccountID,
+		arg.PlaidItemID,
 		arg.AccountName,
 		arg.OfficialName,
 		arg.AccountType,
@@ -66,32 +66,8 @@ func (q *Queries) CreateBankAccount(ctx context.Context, arg CreateBankAccountPa
 	)
 	var i BankAccount
 	err := row.Scan(
-		&i.ID,
-		&i.ItemID,
 		&i.PlaidAccountID,
-		&i.AccountName,
-		&i.OfficialName,
-		&i.AccountType,
-		&i.AccountSubtype,
-		&i.CurrentBalance,
-		&i.AvailableBalance,
-		&i.IsoCurrencyCode,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const getBankAccountByID = `-- name: GetBankAccountByID :one
-SELECT id, item_id, plaid_account_id, account_name, official_name, account_type, account_subtype, current_balance, available_balance, iso_currency_code, updated_at FROM bank_accounts WHERE id = $1
-`
-
-func (q *Queries) GetBankAccountByID(ctx context.Context, id uuid.UUID) (BankAccount, error) {
-	row := q.db.QueryRowContext(ctx, getBankAccountByID, id)
-	var i BankAccount
-	err := row.Scan(
-		&i.ID,
-		&i.ItemID,
-		&i.PlaidAccountID,
+		&i.PlaidItemID,
 		&i.AccountName,
 		&i.OfficialName,
 		&i.AccountType,
@@ -105,16 +81,15 @@ func (q *Queries) GetBankAccountByID(ctx context.Context, id uuid.UUID) (BankAcc
 }
 
 const getBankAccountByPlaidAccountID = `-- name: GetBankAccountByPlaidAccountID :one
-SELECT id, item_id, plaid_account_id, account_name, official_name, account_type, account_subtype, current_balance, available_balance, iso_currency_code, updated_at FROM bank_accounts WHERE plaid_account_id = $1 LIMIT 1
+SELECT plaid_account_id, plaid_item_id, account_name, official_name, account_type, account_subtype, current_balance, available_balance, iso_currency_code, updated_at FROM bank_accounts WHERE plaid_account_id = $1 LIMIT 1
 `
 
 func (q *Queries) GetBankAccountByPlaidAccountID(ctx context.Context, plaidAccountID string) (BankAccount, error) {
-	row := q.db.QueryRowContext(ctx, getBankAccountByPlaidAccountID, plaidAccountID)
+	row := q.db.QueryRow(ctx, getBankAccountByPlaidAccountID, plaidAccountID)
 	var i BankAccount
 	err := row.Scan(
-		&i.ID,
-		&i.ItemID,
 		&i.PlaidAccountID,
+		&i.PlaidItemID,
 		&i.AccountName,
 		&i.OfficialName,
 		&i.AccountType,
@@ -128,15 +103,15 @@ func (q *Queries) GetBankAccountByPlaidAccountID(ctx context.Context, plaidAccou
 }
 
 const getBankAccountsByItemID = `-- name: GetBankAccountsByItemID :many
-SELECT id, item_id, plaid_account_id, account_name, official_name, account_type, account_subtype, current_balance, available_balance, iso_currency_code, updated_at
+SELECT plaid_account_id, plaid_item_id, account_name, official_name, account_type, account_subtype, current_balance, available_balance, iso_currency_code, updated_at
 FROM bank_accounts
 WHERE
-    item_id = $1
+    plaid_item_id = $1
 ORDER BY account_name
 `
 
-func (q *Queries) GetBankAccountsByItemID(ctx context.Context, itemID uuid.UUID) ([]BankAccount, error) {
-	rows, err := q.db.QueryContext(ctx, getBankAccountsByItemID, itemID)
+func (q *Queries) GetBankAccountsByItemID(ctx context.Context, plaidItemID string) ([]BankAccount, error) {
+	rows, err := q.db.Query(ctx, getBankAccountsByItemID, plaidItemID)
 	if err != nil {
 		return nil, err
 	}
@@ -145,9 +120,8 @@ func (q *Queries) GetBankAccountsByItemID(ctx context.Context, itemID uuid.UUID)
 	for rows.Next() {
 		var i BankAccount
 		if err := rows.Scan(
-			&i.ID,
-			&i.ItemID,
 			&i.PlaidAccountID,
+			&i.PlaidItemID,
 			&i.AccountName,
 			&i.OfficialName,
 			&i.AccountType,
@@ -160,9 +134,6 @@ func (q *Queries) GetBankAccountsByItemID(ctx context.Context, itemID uuid.UUID)
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -171,17 +142,17 @@ func (q *Queries) GetBankAccountsByItemID(ctx context.Context, itemID uuid.UUID)
 }
 
 const getBankAccountsByUserID = `-- name: GetBankAccountsByUserID :many
-SELECT ba.id, ba.item_id, ba.plaid_account_id, ba.account_name, ba.official_name, ba.account_type, ba.account_subtype, ba.current_balance, ba.available_balance, ba.iso_currency_code, ba.updated_at
+SELECT ba.plaid_account_id, ba.plaid_item_id, ba.account_name, ba.official_name, ba.account_type, ba.account_subtype, ba.current_balance, ba.available_balance, ba.iso_currency_code, ba.updated_at
 FROM
     bank_accounts ba
-    JOIN plaid_items pi ON ba.item_id = pi.id
+    JOIN plaid_items pli ON ba.plaid_item_id = pli.plaid_item_id
 WHERE
-    pi.user_id = $1
+    pli.app_user_id = $1
 ORDER BY ba.account_name
 `
 
-func (q *Queries) GetBankAccountsByUserID(ctx context.Context, userID uuid.UUID) ([]BankAccount, error) {
-	rows, err := q.db.QueryContext(ctx, getBankAccountsByUserID, userID)
+func (q *Queries) GetBankAccountsByUserID(ctx context.Context, appUserID uuid.UUID) ([]BankAccount, error) {
+	rows, err := q.db.Query(ctx, getBankAccountsByUserID, appUserID)
 	if err != nil {
 		return nil, err
 	}
@@ -190,9 +161,8 @@ func (q *Queries) GetBankAccountsByUserID(ctx context.Context, userID uuid.UUID)
 	for rows.Next() {
 		var i BankAccount
 		if err := rows.Scan(
-			&i.ID,
-			&i.ItemID,
 			&i.PlaidAccountID,
+			&i.PlaidItemID,
 			&i.AccountName,
 			&i.OfficialName,
 			&i.AccountType,
@@ -205,9 +175,6 @@ func (q *Queries) GetBankAccountsByUserID(ctx context.Context, userID uuid.UUID)
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -222,25 +189,25 @@ SET
     available_balance = $3,
     updated_at = now()
 WHERE
-    id = $1
+    plaid_account_id = $1
 `
 
 type UpdateBankAccountBalanceParams struct {
-	ID               uuid.UUID
-	CurrentBalance   string
-	AvailableBalance string
+	PlaidAccountID   string
+	CurrentBalance   pgtype.Numeric
+	AvailableBalance pgtype.Numeric
 }
 
 func (q *Queries) UpdateBankAccountBalance(ctx context.Context, arg UpdateBankAccountBalanceParams) error {
-	_, err := q.db.ExecContext(ctx, updateBankAccountBalance, arg.ID, arg.CurrentBalance, arg.AvailableBalance)
+	_, err := q.db.Exec(ctx, updateBankAccountBalance, arg.PlaidAccountID, arg.CurrentBalance, arg.AvailableBalance)
 	return err
 }
 
 const upsertBankAccount = `-- name: UpsertBankAccount :one
 INSERT INTO
     bank_accounts (
-        item_id,
         plaid_account_id,
+        plaid_item_id,
         account_name,
         official_name,
         account_type,
@@ -262,33 +229,35 @@ VALUES (
     )
 ON CONFLICT (plaid_account_id) DO UPDATE
     SET
+        plaid_item_id = $2,
         account_name = $3,
         official_name = $4,
         account_type = $5,
         account_subtype = $6,
         current_balance = $7,
         available_balance = $8,
-        iso_currency_code = $9
+        iso_currency_code = $9,
+        updated_at = now()
 RETURNING
-    id, item_id, plaid_account_id, account_name, official_name, account_type, account_subtype, current_balance, available_balance, iso_currency_code, updated_at
+    plaid_account_id, plaid_item_id, account_name, official_name, account_type, account_subtype, current_balance, available_balance, iso_currency_code, updated_at
 `
 
 type UpsertBankAccountParams struct {
-	ItemID           uuid.UUID
 	PlaidAccountID   string
+	PlaidItemID      string
 	AccountName      string
-	OfficialName     sql.NullString
+	OfficialName     pgtype.Text
 	AccountType      string
-	AccountSubtype   sql.NullString
-	CurrentBalance   string
-	AvailableBalance string
+	AccountSubtype   pgtype.Text
+	CurrentBalance   pgtype.Numeric
+	AvailableBalance pgtype.Numeric
 	IsoCurrencyCode  string
 }
 
 func (q *Queries) UpsertBankAccount(ctx context.Context, arg UpsertBankAccountParams) (BankAccount, error) {
-	row := q.db.QueryRowContext(ctx, upsertBankAccount,
-		arg.ItemID,
+	row := q.db.QueryRow(ctx, upsertBankAccount,
 		arg.PlaidAccountID,
+		arg.PlaidItemID,
 		arg.AccountName,
 		arg.OfficialName,
 		arg.AccountType,
@@ -299,9 +268,8 @@ func (q *Queries) UpsertBankAccount(ctx context.Context, arg UpsertBankAccountPa
 	)
 	var i BankAccount
 	err := row.Scan(
-		&i.ID,
-		&i.ItemID,
 		&i.PlaidAccountID,
+		&i.PlaidItemID,
 		&i.AccountName,
 		&i.OfficialName,
 		&i.AccountType,

@@ -1,15 +1,16 @@
 -- name: UpsertTransaction :one
 INSERT INTO
     transactions (
-        account_id,
+        plaid_transaction_id,
+        plaid_account_id,
         transaction_date,
         transaction_name,
         category,
         amount,
         pending
     )
-VALUES ($1, $2, $3, $4, $5, $6)
-ON CONFLICT (id) DO
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+ON CONFLICT (plaid_transaction_id) DO
 UPDATE
 SET
     transaction_date = EXCLUDED.transaction_date,
@@ -23,14 +24,15 @@ RETURNING
 -- name: CreateTransaction :one
 INSERT INTO
     transactions (
-        account_id,
+        plaid_transaction_id,
+        plaid_account_id,
         transaction_date,
         transaction_name,
         category,
         amount,
         pending
     )
-VALUES ($1, $2, $3, $4, $5, $6)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING
     *;
 
@@ -38,15 +40,26 @@ RETURNING
 SELECT *
 FROM transactions
 WHERE
-    account_id = $1
+    plaid_account_id = $1
 ORDER BY transaction_date DESC;
 
 -- name: GetTransactionsByUserID :many
 SELECT t.*
 FROM
     transactions t
-    JOIN bank_accounts ba ON t.account_id = ba.id
-    JOIN plaid_items pi ON ba.item_id = pi.id
+    JOIN bank_accounts ba ON t.plaid_account_id = ba.plaid_account_id
+    JOIN plaid_items pli ON ba.plaid_item_id = pli.plaid_item_id
 WHERE
-    pi.user_id = $1
+    pli.app_user_id = $1
 ORDER BY t.transaction_date DESC;
+
+-- name: CreateTransactions :copyfrom
+INSERT INTO transactions (
+    plaid_transaction_id,
+    plaid_account_id,
+    transaction_date,
+    transaction_name,
+    category,
+    amount,
+    pending
+) VALUES ($1, $2, $3, $4, $5, $6, $7);

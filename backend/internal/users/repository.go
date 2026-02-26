@@ -55,6 +55,6 @@ func toUser(row sqlcdb.User) User {
 		ID:           row.ID,
 		Email:        row.Email,
 		PasswordHash: row.PasswordHash,
-		CreatedAt:    row.CreatedAt,
+		CreatedAt:    row.CreatedAt.Time,
 	}
 }

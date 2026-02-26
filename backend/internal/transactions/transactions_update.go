@@ -1,4 +1,4 @@
-package bank_accounts
+package transactions
 
 import plaidlib "github.com/plaid/plaid-go/v20/plaid"
 
