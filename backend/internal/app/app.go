@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/liam-ruiz/budget/internal/api"
 	"github.com/liam-ruiz/budget/internal/bank_accounts"
-	"github.com/liam-ruiz/budget/internal/bank_accounts/plaid_items"
+	"github.com/liam-ruiz/budget/internal/plaid_items"
 	"github.com/liam-ruiz/budget/internal/budgets"
 	"github.com/liam-ruiz/budget/internal/config"
 	"github.com/liam-ruiz/budget/internal/db/sqlcdb"
@@ -57,7 +57,7 @@ func Run(cfg *config.Config) error {
 
 
 	// Now NewHandler only takes the container
-	handler := api.NewHandler(cont)
+	handler := api.NewHandler(cont, cfg.BaseURL)
 
 	log.Println("Application Started.")
 	return http.ListenAndServe(":"+cfg.Port, handler.Routes())

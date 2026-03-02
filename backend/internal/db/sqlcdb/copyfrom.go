@@ -33,9 +33,14 @@ func (r iteratorForCreateTransactions) Values() ([]interface{}, error) {
 		r.rows[0].PlaidAccountID,
 		r.rows[0].TransactionDate,
 		r.rows[0].TransactionName,
-		r.rows[0].Category,
 		r.rows[0].Amount,
 		r.rows[0].Pending,
+		r.rows[0].MerchantName,
+		r.rows[0].LogoUrl,
+		r.rows[0].PersonalFinanceCategory,
+		r.rows[0].DetailedCategory,
+		r.rows[0].CategoryConfidenceLevel,
+		r.rows[0].CategoryIconUrl,
 	}, nil
 }
 
@@ -44,5 +49,5 @@ func (r iteratorForCreateTransactions) Err() error {
 }
 
 func (q *Queries) CreateTransactions(ctx context.Context, arg []CreateTransactionsParams) (int64, error) {
-	return q.db.CopyFrom(ctx, []string{"transactions"}, []string{"plaid_transaction_id", "plaid_account_id", "transaction_date", "transaction_name", "category", "amount", "pending"}, &iteratorForCreateTransactions{rows: arg})
+	return q.db.CopyFrom(ctx, []string{"transactions"}, []string{"plaid_transaction_id", "plaid_account_id", "transaction_date", "transaction_name", "amount", "pending", "merchant_name", "logo_url", "personal_finance_category", "detailed_category", "category_confidence_level", "category_icon_url"}, &iteratorForCreateTransactions{rows: arg})
 }

@@ -60,3 +60,26 @@ func (s *Service) SyncTransactions(ctx context.Context, req *plaidlib.Transactio
 	return resp, nil
 }
 
+func (s *Service) GetItem(ctx context.Context, req *plaidlib.ItemGetRequest) (plaidlib.ItemGetResponse, error) {
+	resp, _, err := s.client.PlaidApi.
+		ItemGet(ctx).
+		ItemGetRequest(*req).
+		Execute()
+	if err != nil {
+		return plaidlib.ItemGetResponse{}, err
+	}
+	return resp, nil
+}
+
+func (s *Service) WebhookPublicKeyGet(ctx context.Context, kid string) (plaidlib.WebhookVerificationKeyGetResponse, error) {
+	resp, _, err := s.client.PlaidApi.
+		WebhookVerificationKeyGet(ctx).
+		WebhookVerificationKeyGetRequest(plaidlib.WebhookVerificationKeyGetRequest{
+			KeyId: kid,
+		}).
+		Execute()
+	if err != nil {
+		return plaidlib.WebhookVerificationKeyGetResponse{}, err
+	}
+	return resp, nil
+}

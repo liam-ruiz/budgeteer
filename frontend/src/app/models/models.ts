@@ -13,25 +13,31 @@ export interface UserResponse {
 // ── Accounts ──
 
 export interface Account {
-    id: string;
-    institution_name: string;
+    item_id: string;
+    account_id: string;
     account_name: string;
     account_type: string;
+    account_subtype?: string;
     current_balance: string;
     available_balance: string;
-    last_synced_at: string | null;
+    iso_currency_code: string;
 }
 
 // ── Transactions ──
 
 export interface Transaction {
-    id: string;
+    transaction_id: string;
     account_id: string;
     date: string;
     name: string;
-    category: string;
     amount: string;
     pending: boolean;
+    merchant_name?: string;
+    logo_url?: string;
+    personal_finance_category?: string;
+    detailed_category?: string;
+    category_confidence_level?: string;
+    category_icon_url?: string;
     created_at: string;
 }
 

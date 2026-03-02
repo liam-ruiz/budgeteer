@@ -45,14 +45,19 @@ type PlaidItem struct {
 }
 
 type Transaction struct {
-	PlaidTransactionID string
-	PlaidAccountID     string
-	TransactionDate    pgtype.Date
-	TransactionName    string
-	Category           string
-	Amount             pgtype.Numeric
-	Pending            bool
-	CreatedAt          pgtype.Timestamptz
+	PlaidTransactionID      string
+	PlaidAccountID          string
+	TransactionDate         pgtype.Date
+	TransactionName         string
+	Amount                  pgtype.Numeric
+	Pending                 bool
+	MerchantName            pgtype.Text
+	LogoUrl                 pgtype.Text
+	PersonalFinanceCategory pgtype.Text
+	DetailedCategory        pgtype.Text
+	CategoryConfidenceLevel pgtype.Text
+	CategoryIconUrl         pgtype.Text
+	CreatedAt               pgtype.Timestamptz
 }
 
 type User struct {

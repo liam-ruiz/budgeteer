@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal, WritableSignal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService } from '../../services/api';
 import { Transaction } from '../../models/models';
@@ -12,18 +12,18 @@ import { Transaction } from '../../models/models';
 export class TransactionsPage implements OnInit {
     private api = inject(ApiService);
 
-    transactions: Transaction[] = [];
-    loading = true;
+    transactions: WritableSignal<Transaction[]> = signal<Transaction[]>([]);
+    loading: WritableSignal<boolean> = signal(true);
 
     ngOnInit() {
         this.api.getTransactions().subscribe({
             next: (data) => {
-                this.transactions = data ?? [];
-                this.loading = false;
+                this.loading.set(false);
+                this.transactions.set(data ?? []);
             },
             error: () => {
-                this.transactions = [];
-                this.loading = false;
+                this.loading.set(false);
+                this.transactions.set([]);
             },
         });
     }
@@ -43,5 +43,12 @@ export class TransactionsPage implements OnInit {
 
     parseFloat(value: string): number {
         return parseFloat(value || '0');
+    }
+
+    formatCategory(category: string): string {
+        return category
+            .toLowerCase()
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, (c) => c.toUpperCase());
     }
 }

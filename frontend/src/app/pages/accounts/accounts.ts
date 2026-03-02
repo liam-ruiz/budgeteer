@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, Signal, signal, WritableSignal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService } from '../../services/api';
 import { PlaidService } from '../../services/plaid';
@@ -14,39 +14,39 @@ export class AccountsPage implements OnInit {
     private api = inject(ApiService);
     private plaid = inject(PlaidService);
 
-    accounts: Account[] = [];
-    loading = true;
-    linking = false;
-    linkError = '';
+    accounts: WritableSignal<Account[]> = signal<Account[]>([]);
+    loading: WritableSignal<boolean> = signal(true);
+    linking: WritableSignal<boolean> = signal(false);
+    linkError: WritableSignal<string> = signal('');
 
     ngOnInit() {
         this.loadAccounts();
     }
 
     loadAccounts() {
-        this.loading = true;
+        this.loading.set(true);
         this.api.getAccounts().subscribe({
             next: (data) => {
-                this.accounts = data ?? [];
-                this.loading = false;
+                this.loading.set(false);
+                this.accounts.set(data ?? []);
             },
             error: () => {
-                this.accounts = [];
-                this.loading = false;
+                this.loading.set(false);
+                this.accounts.set([]);
             },
         });
     }
 
     async linkAccount() {
-        this.linkError = '';
-        this.linking = true;
+        this.linkError.set('');
+        this.linking.set(true);
         try {
             await this.plaid.open();
             this.loadAccounts();
         } catch (err: any) {
-            this.linkError = err?.message || 'Failed to link account.';
+            this.linkError.set(err?.message || 'Failed to link account.');
         } finally {
-            this.linking = false;
+            this.linking.set(false);
         }
     }
 

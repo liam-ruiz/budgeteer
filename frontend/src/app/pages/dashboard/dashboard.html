@@ -36,11 +36,16 @@
             </div>
             } @else {
             <div class="txn-list">
-                @for (txn of recentTransactions; track txn.id) {
+                @for (txn of recentTransactions; track txn.transaction_id) {
                 <div class="txn-row">
                     <div class="txn-info">
                         <span class="txn-name">{{ txn.name }}</span>
-                        <span class="txn-category">{{ txn.category }}</span>
+                        @if (txn.personal_finance_category) {
+                        <span class="txn-category">{{ txn.personal_finance_category }}</span>
+                        }
+                        @else {
+                        <span class="txn-category">Misc</span>
+                        }
                     </div>
                     <div class="txn-amount" [class.negative]="parseFloat(txn.amount) < 0">
                         {{ formatCurrency(txn.amount) }}

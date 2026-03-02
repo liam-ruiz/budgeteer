@@ -2,7 +2,7 @@ package dependencies
 
 import (
 	"github.com/liam-ruiz/budget/internal/bank_accounts"
-	"github.com/liam-ruiz/budget/internal/bank_accounts/plaid_items"
+	"github.com/liam-ruiz/budget/internal/plaid_items"
 	"github.com/liam-ruiz/budget/internal/budgets"
 	"github.com/liam-ruiz/budget/internal/config"
 	"github.com/liam-ruiz/budget/internal/plaid"

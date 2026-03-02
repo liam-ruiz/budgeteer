@@ -5,19 +5,42 @@ INSERT INTO
         plaid_account_id,
         transaction_date,
         transaction_name,
-        category,
         amount,
-        pending
+        pending,
+        merchant_name,
+        logo_url,
+        personal_finance_category,
+        detailed_category,
+        category_confidence_level,
+        category_icon_url
     )
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+VALUES (
+        $1,
+        $2,
+        $3,
+        $4,
+        $5,
+        $6,
+        $7,
+        $8,
+        $9,
+        $10,
+        $11,
+        $12
+    )
 ON CONFLICT (plaid_transaction_id) DO
 UPDATE
 SET
     transaction_date = EXCLUDED.transaction_date,
     transaction_name = EXCLUDED.transaction_name,
-    category = EXCLUDED.category,
     amount = EXCLUDED.amount,
-    pending = EXCLUDED.pending
+    pending = EXCLUDED.pending,
+    merchant_name = EXCLUDED.merchant_name,
+    logo_url = EXCLUDED.logo_url,
+    personal_finance_category = EXCLUDED.personal_finance_category,
+    detailed_category = EXCLUDED.detailed_category,
+    category_confidence_level = EXCLUDED.category_confidence_level,
+    category_icon_url = EXCLUDED.category_icon_url
 RETURNING
     *;
 
@@ -28,11 +51,29 @@ INSERT INTO
         plaid_account_id,
         transaction_date,
         transaction_name,
-        category,
         amount,
-        pending
+        pending,
+        merchant_name,
+        logo_url,
+        personal_finance_category,
+        detailed_category,
+        category_confidence_level,
+        category_icon_url
     )
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+VALUES (
+        $1,
+        $2,
+        $3,
+        $4,
+        $5,
+        $6,
+        $7,
+        $8,
+        $9,
+        $10,
+        $11,
+        $12
+    )
 RETURNING
     *;
 
@@ -59,7 +100,12 @@ INSERT INTO transactions (
     plaid_account_id,
     transaction_date,
     transaction_name,
-    category,
     amount,
-    pending
-) VALUES ($1, $2, $3, $4, $5, $6, $7);
+    pending,
+    merchant_name,
+    logo_url,
+    personal_finance_category,
+    detailed_category,
+    category_confidence_level,
+    category_icon_url
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);

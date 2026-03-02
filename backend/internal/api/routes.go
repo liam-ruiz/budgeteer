@@ -30,6 +30,7 @@ func (h *Handler) Routes() http.Handler {
 		r.Post("/plaid/link-token", h.CreateLinkToken)
 	})
 
+	r.Post("/plaid/webhook", h.HandleWebhook)
 	return r
 }
 

@@ -5,26 +5,26 @@
                 <h1>Linked Accounts</h1>
                 <p>Manage your connected bank accounts</p>
             </div>
-            <button class="btn btn-primary" (click)="linkAccount()" [disabled]="linking">
+            <button class="btn btn-primary" (click)="linkAccount()" [disabled]="linking()">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M5 12h14" />
                     <path d="M12 5v14" />
                 </svg>
-                {{ linking ? 'Connecting…' : 'Link New Account' }}
+                {{ linking() ? 'Connecting…' : 'Link New Account' }}
             </button>
         </div>
     </div>
 
-    @if (linkError) {
-    <div class="link-error">{{ linkError }}</div>
+    @if (linkError()) {
+    <div class="link-error">{{ linkError() }}</div>
     }
 
-    @if (loading) {
+    @if (loading()) {
     <div class="empty-state">
         <p>Loading accounts…</p>
     </div>
-    } @else if (accounts.length === 0) {
+    } @else if (accounts().length === 0) {
     <div class="empty-state card">
         <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -36,11 +36,13 @@
     </div>
     } @else {
     <div class="accounts-grid">
-        @for (acct of accounts; track acct.id) {
+        @for (acct of accounts(); track acct.account_id) {
         <div class="account-card card">
             <div class="account-institution">
                 <span class="badge badge-accent">{{ acct.account_type }}</span>
-                <span class="account-inst-name">{{ acct.institution_name }}</span>
+                @if (acct.account_subtype) {
+                <span class="account-inst-name">{{ acct.account_subtype }}</span>
+                }
             </div>
             <div class="account-name">{{ acct.account_name }}</div>
             <div class="account-balances">

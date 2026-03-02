@@ -11,7 +11,7 @@ import (
 // Repository defines the interface for transaction data access.
 type Repository interface {
 	Create(ctx context.Context, params sqlcdb.CreateTransactionParams) (Transaction, error)
-	CreateMany(ctx context.Context, params []sqlcdb.CreateTransactionsParams) error
+	Upsert(ctx context.Context, params sqlcdb.UpsertTransactionParams) (Transaction, error)
 	GetByAccountID(ctx context.Context, plaidAccountID string) ([]Transaction, error)
 	GetByUserID(ctx context.Context, appUserID uuid.UUID) ([]Transaction, error)
 }
@@ -27,6 +27,14 @@ func NewRepository(q *sqlcdb.Queries) Repository {
 
 func (r *repository) Create(ctx context.Context, params sqlcdb.CreateTransactionParams) (Transaction, error) {
 	row, err := r.q.CreateTransaction(ctx, params)
+	if err != nil {
+		return Transaction{}, err
+	}
+	return toTransaction(row), nil
+}
+
+func (r *repository) Upsert(ctx context.Context, params sqlcdb.UpsertTransactionParams) (Transaction, error) {
+	row, err := r.q.UpsertTransaction(ctx, params)
 	if err != nil {
 		return Transaction{}, err
 	}
@@ -49,21 +57,21 @@ func (r *repository) GetByUserID(ctx context.Context, userID uuid.UUID) ([]Trans
 	return toTransactions(rows), nil
 }
 
-func (r *repository) CreateMany(ctx context.Context, update []sqlcdb.CreateTransactionsParams) error {
-	r.q.CreateTransactions(ctx, update)
-	return nil
-}
-
 func toTransaction(row sqlcdb.Transaction) Transaction {
 	return Transaction{
-		PlaidTransactionID: row.PlaidTransactionID,
-		AccountID:          row.PlaidAccountID,
-		Date:               row.TransactionDate.Time.Format("2006-01-02"),
-		Name:               row.TransactionName,
-		Category:           row.Category,
-		Amount:             util.NumericToString(row.Amount),
-		Pending:            row.Pending,
-		CreatedAt:          row.CreatedAt.Time,
+		PlaidTransactionID:      row.PlaidTransactionID,
+		AccountID:               row.PlaidAccountID,
+		Date:                    row.TransactionDate.Time.Format("2006-01-02"),
+		Name:                    row.TransactionName,
+		Amount:                  util.NumericToString(row.Amount),
+		Pending:                 row.Pending,
+		MerchantName:            row.MerchantName.String,
+		LogoUrl:                 row.LogoUrl.String,
+		PersonalFinanceCategory: row.PersonalFinanceCategory.String,
+		DetailedCategory:        row.DetailedCategory.String,
+		CategoryConfidenceLevel: row.CategoryConfidenceLevel.String,
+		CategoryIconUrl:         row.CategoryIconUrl.String,
+		CreatedAt:               row.CreatedAt.Time,
 	}
 }
 

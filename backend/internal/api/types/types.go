@@ -54,3 +54,10 @@ type ExchangeTokenResponse struct {
 type ErrorResponse struct {
 	Error string `json:"error"`
 }
+
+// PlaidWebhook is the payload for a Plaid webhook.
+type PlaidWebhook struct {
+	WebhookType string `json:"webhook_type"`
+	WebhookCode string `json:"webhook_code"`
+	PlaidItemID string `json:"item_id"`
+}

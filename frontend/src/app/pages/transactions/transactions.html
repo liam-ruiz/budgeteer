@@ -4,11 +4,11 @@
         <p>All your financial activity in one place</p>
     </div>
 
-    @if (loading) {
+    @if (loading()) {
     <div class="empty-state">
         <p>Loading transactions…</p>
     </div>
-    } @else if (transactions.length === 0) {
+    } @else if (transactions().length === 0) {
     <div class="empty-state card">
         <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -30,11 +30,32 @@
                 </tr>
             </thead>
             <tbody>
-                @for (txn of transactions; track txn.id) {
+                @for (txn of transactions(); track txn.transaction_id) {
                 <tr>
                     <td>{{ formatDate(txn.date) }}</td>
-                    <td class="txn-name-cell">{{ txn.name }}</td>
-                    <td><span class="badge badge-accent">{{ txn.category }}</span></td>
+                    <td class="txn-name-cell">
+                        <div class="txn-name-row">
+                            @if (txn.logo_url) {
+                            <img [src]="txn.logo_url" alt="" class="txn-logo" />
+                            }
+                            <div class="txn-name-text">
+                                <span>{{ txn.merchant_name || txn.name }}</span>
+                                @if (txn.merchant_name && txn.merchant_name !== txn.name) {
+                                <span class="txn-original-name">{{ txn.name }}</span>
+                                }
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        @if (txn.personal_finance_category) {
+                        <div class="txn-category-row">
+                            @if (txn.category_icon_url) {
+                            <img [src]="txn.category_icon_url" alt="" class="txn-category-icon" />
+                            }
+                            <span class="badge badge-accent">{{ formatCategory(txn.personal_finance_category) }}</span>
+                        </div>
+                        } 
+                    </td>
                     <td class="txn-amount" [class.negative]="parseFloat(txn.amount) < 0">
                         {{ formatCurrency(txn.amount) }}
                     </td>

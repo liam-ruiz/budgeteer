@@ -1,9 +1,16 @@
 package api
 
 import (
+	"bytes"
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"math/big"
 	"net/http"
@@ -11,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/liam-ruiz/budget/internal/api/types"
 	"github.com/liam-ruiz/budget/internal/auth"
@@ -22,19 +30,34 @@ import (
 // Handler holds all service dependencies for the API.
 type Handler struct {
 	container *dependencies.Container
+	baseURL   string
 }
+
+type PlaidWebhook struct {
+	WebhookType string `json:"webhook_type"`
+	WebhookCode string `json:"webhook_code"`
+	PlaidItemID string `json:"item_id"`
+}
+
+var (
+	webhookTypeTransactions = "TRANSACTIONS_WEBHOOK"
+	webhookCodeItemSynced   = "SYNC_UPDATES_AVAILABLE"
+)
 
 // NewHandler creates a new API handler with all service dependencies.
 func NewHandler(
 	container *dependencies.Container,
+	baseURL string,
 ) *Handler {
 	return &Handler{
 		container: container,
+		baseURL:   baseURL,
 	}
 }
 
 // Register creates a new user account.
 func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
+	log.Printf("[Register] %s %s", r.Method, r.URL.Path)
 	var req types.AuthRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		log.Default().Printf("Error decoding request body: %v\n", err)
@@ -71,6 +94,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 
 // Login authenticates a user and returns a JWT.
 func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
+	log.Printf("[Login] %s %s", r.Method, r.URL.Path)
 	var req types.AuthRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		log.Default().Printf("Error decoding request body: %v\n", err)
@@ -107,6 +131,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 // GetAccounts returns all linked bank accounts for the authenticated user.
 func (h *Handler) GetAccounts(w http.ResponseWriter, r *http.Request) {
+	log.Printf("[GetAccounts] %s %s", r.Method, r.URL.Path)
 	userID, err := auth.GetUserID(r.Context())
 	if err != nil {
 		log.Default().Printf("Error getting user ID: %v\n", err)
@@ -126,6 +151,7 @@ func (h *Handler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 
 // GetTransactions returns all transactions for the authenticated user.
 func (h *Handler) GetTransactions(w http.ResponseWriter, r *http.Request) {
+	log.Printf("[GetTransactions] %s %s", r.Method, r.URL.Path)
 	userID, err := auth.GetUserID(r.Context())
 	if err != nil {
 		log.Default().Printf("Error getting user ID: %v\n", err)
@@ -145,6 +171,7 @@ func (h *Handler) GetTransactions(w http.ResponseWriter, r *http.Request) {
 
 // CreateBudget creates a new budget for the authenticated user.
 func (h *Handler) CreateBudget(w http.ResponseWriter, r *http.Request) {
+	log.Printf("[CreateBudget] %s %s", r.Method, r.URL.Path)
 	userID, err := auth.GetUserID(r.Context())
 	if err != nil {
 		log.Default().Printf("Error getting user ID: %v\n", err)
@@ -182,7 +209,7 @@ func (h *Handler) CreateBudget(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "limit_amount must be a valid number")
 		return
 	}
-	
+
 	params := sqlcdb.CreateBudgetParams{
 		AppUserID:    userID,
 		Category:     req.Category,
@@ -213,6 +240,7 @@ func (h *Handler) CreateBudget(w http.ResponseWriter, r *http.Request) {
 
 // GetBudgets returns all budgets for the authenticated user.
 func (h *Handler) GetBudgets(w http.ResponseWriter, r *http.Request) {
+	log.Printf("[GetBudgets] %s %s", r.Method, r.URL.Path)
 	userID, err := auth.GetUserID(r.Context())
 	if err != nil {
 		log.Default().Printf("Error getting user ID: %v\n", err)
@@ -233,51 +261,62 @@ func (h *Handler) GetBudgets(w http.ResponseWriter, r *http.Request) {
 // --- Plaid Handlers ---
 
 func (h *Handler) ExchangePlaidPublicToken(w http.ResponseWriter, r *http.Request) {
-    userID, _ := auth.GetUserID(r.Context()) // Assuming middleware handled this
+	log.Printf("[ExchangePlaidPublicToken] %s %s", r.Method, r.URL.Path)
+	userID, _ := auth.GetUserID(r.Context()) // Assuming middleware handled this
 
-    var req types.ExchangeTokenRequest
-    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-        writeError(w, http.StatusBadRequest, "invalid request body")
-        return
-    }
+	var req types.ExchangeTokenRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("[ExchangePlaidPublicToken] error decoding request body: %v", err)
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
 
-    // exchange public token for access token
-    exchangeReq := plaidlib.NewItemPublicTokenExchangeRequest(req.PublicToken)
-    resp, err := h.container.PlaidAPISvc.ExchangePublicToken(r.Context(), exchangeReq)
-    if err != nil {
-        writeError(w, http.StatusBadGateway, "plaid exchange failed")
-        return
-    }
+	// exchange public token for access token
+	exchangeReq := plaidlib.NewItemPublicTokenExchangeRequest(req.PublicToken)
+	resp, err := h.container.PlaidAPISvc.ExchangePublicToken(r.Context(), exchangeReq)
+	if err != nil {
+		log.Printf("[ExchangePlaidPublicToken] plaid exchange failed: %v", err)
+		writeError(w, http.StatusBadGateway, "plaid exchange failed")
+		return
+	}
 
-    accessToken := resp.GetAccessToken()
-    plaidItemID := resp.GetItemId()
+	accessToken := resp.GetAccessToken()
+	plaidItemID := resp.GetItemId()
 
-    // fetch metadata for this Item
-    // best to get the account details immediately so the user sees them.
-    accountsReq := plaidlib.NewAccountsGetRequest(accessToken)
-    accountsResp, err := h.container.PlaidAPISvc.GetAccountInfo(r.Context(), accountsReq)
-    if err != nil {
-        writeError(w, http.StatusBadGateway, "failed to fetch account details")
-        return
-    }
+	// fetch metadata for this Item
+	// best to get the account details immediately so the user sees them.
+	accountsReq := plaidlib.NewAccountsGetRequest(accessToken)
+	accountsResp, err := h.container.PlaidAPISvc.GetAccountInfo(r.Context(), accountsReq)
+	if err != nil {
+		log.Printf("[ExchangePlaidPublicToken] failed to fetch account details: %v", err)
+		writeError(w, http.StatusBadGateway, "failed to fetch account details")
+		return
+	}
 
-    // persist the Item and Accounts
-    // We do this in the service layer to handle the transaction/upsert logic
-    err = h.container.AccountSvc.LinkNewItem(r.Context(), userID, plaidItemID, accessToken, &accountsResp)
-    if err != nil {
-        writeError(w, http.StatusInternalServerError, "failed to save linked accounts")
-        return
-    }
+	// persist the Item and Accounts
+	// We do this in the service layer to handle the transaction/upsert logic
+	err = h.container.AccountSvc.LinkNewItem(r.Context(), userID, plaidItemID, accessToken, &accountsResp)
+	if err != nil {
+		log.Printf("[ExchangePlaidPublicToken] failed to save linked accounts: %v", err)
+		writeError(w, http.StatusInternalServerError, "failed to save linked accounts")
+		return
+	}
 
-    // trigger background transaction sync (Production-lite approach)
-    // empty string for cursor means we want to sync all available transactions
-    go h.container.AccountSvc.SyncTransactions(context.Background(), plaidItemID, "")
+	// trigger background transaction sync (Production-lite approach)
+	// empty string for cursor means we want to sync all available transactions
+	err = h.container.AccountSvc.SyncTransactions(context.Background(), plaidItemID, "")
+	if err != nil {
+		log.Printf("[ExchangePlaidPublicToken] failed to sync transactions: %v", err)
+		writeError(w, http.StatusInternalServerError, "failed to sync transactions")
+		return
+	}
 
-    writeJSON(w, http.StatusCreated, map[string]string{"status": "syncing"})
+	writeJSON(w, http.StatusCreated, map[string]string{"status": "syncing"})
 }
 
 // CreateLinkToken generates a Plaid Link token for the authenticated user.
 func (h *Handler) CreateLinkToken(w http.ResponseWriter, r *http.Request) {
+	log.Printf("[CreateLinkToken] %s %s", r.Method, r.URL.Path)
 	userID, err := auth.GetUserID(r.Context())
 	if err != nil {
 		log.Default().Printf("Error getting user ID: %v\n", err)
@@ -299,6 +338,7 @@ func (h *Handler) CreateLinkToken(w http.ResponseWriter, r *http.Request) {
 		user,
 	)
 	linkReq.SetProducts(products)
+	linkReq.SetWebhook(h.baseURL + ":" + h.container.Cfg.Port + "/plaid/webhook")
 
 	resp, err := h.container.PlaidAPISvc.CreateLinkToken(r.Context(), linkReq)
 	if err != nil {
@@ -312,6 +352,101 @@ func (h *Handler) CreateLinkToken(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *Handler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
+	signedJWT := r.Header.Get("Plaid-Verification")
+    if signedJWT == "" {
+        log.Printf("Error: missing Plaid-Verification header")
+        writeError(w, http.StatusUnauthorized, "unauthorized")
+        return
+    }
+
+    // parse the JWT without verification first to get the 'kid'
+    token, _, err := new(jwt.Parser).ParseUnverified(signedJWT, jwt.MapClaims{})
+    if err != nil {
+        log.Printf("Error parsing unverified JWT: %v", err)
+        writeError(w, http.StatusBadRequest, "invalid token format")
+        return
+    }
+
+    kid, ok := token.Header["kid"].(string)
+    if !ok {
+        log.Printf("Error: JWT header missing 'kid'")
+        writeError(w, http.StatusBadRequest, "invalid token header")
+        return
+    }
+
+	// get the public key
+	resp, err := h.container.PlaidAPISvc.WebhookPublicKeyGet(r.Context(), kid)
+	if err != nil {
+		log.Default().Printf("Error verifying request: %v\n", err)
+		writeError(w, http.StatusBadRequest, "invalid request")
+		return
+	}
+
+	key, ok := resp.GetKeyOk()
+	if !ok {
+		log.Default().Printf("Error: request is not from plaid\n")
+		writeError(w, http.StatusBadRequest, "invalid request")
+		return
+	}
+
+	// read the body for verification
+	bodyBytes, err := io.ReadAll(r.Body)
+    if err != nil {
+        writeError(w, http.StatusInternalServerError, "could not read body")
+        return
+    }
+    // put the body back so we can JSON decode it later
+    r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
+	// verify the request
+	err = h.verifyPlaidWebhook(r.Context(), kid, *key, bodyBytes)
+	if err != nil {
+		log.Default().Printf("Error verifying request: %v\n", err)
+		writeError(w, http.StatusBadRequest, "invalid request")
+		return
+	}
+
+	
+	var webhook PlaidWebhook
+	if err := json.NewDecoder(r.Body).Decode(&webhook); err != nil {
+		log.Default().Printf("Error decoding request body: %v\n", err)
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	// TODO: make it so that it waits for historical sync to finish 
+	// before syncing so that only 1 fetch happens.
+	switch webhook.WebhookType {
+	case webhookTypeTransactions:
+		switch webhook.WebhookCode {
+		case webhookCodeItemSynced:
+			log.Printf("Data is ready for Item: %s", webhook.PlaidItemID)
+        
+			
+			go func(itemID string) {
+				// TODO: update to check for cursor in db
+				err := h.container.AccountSvc.SyncTransactions(context.Background(), itemID, "")
+				if err != nil {
+					log.Printf("Async sync failed for %s: %v", itemID, err)
+				}
+
+				// update cursor in db
+				
+			}(webhook.PlaidItemID)
+			break
+		default:
+			log.Default().Printf("Unknown webhook code: %s\n", webhook.WebhookCode)
+			writeError(w, http.StatusBadRequest, "unknown webhook code")
+			return
+		}
+	default:
+		log.Default().Printf("Unknown webhook type: %s\n", webhook.WebhookType)
+		writeError(w, http.StatusBadRequest, "unknown webhook type")
+		return
+	}
+}
+
 // --- Helpers ---
 
 func writeJSON(w http.ResponseWriter, status int, data any) {
@@ -322,4 +457,48 @@ func writeJSON(w http.ResponseWriter, status int, data any) {
 
 func writeError(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, types.ErrorResponse{Error: msg})
+}
+
+func (h *Handler) verifyPlaidWebhook(ctx context.Context, signedJWT string, key plaidlib.JWKPublicKey, bodyBytes []byte) error {
+    // convert Plaid's JWK response to an ECDSA Public Key
+    // plaid returns x and y coordinates in base64url
+    pubKey, err := parsePlaidKey(key)
+    if err != nil {
+        return err
+    }
+
+    // 4. Fully verify the JWT signature
+    parsedToken, err := jwt.Parse(signedJWT, func(t *jwt.Token) (any, error) {
+        return pubKey, nil
+    })
+    if err != nil || !parsedToken.Valid {
+        return fmt.Errorf("invalid jwt signature")
+    }
+
+    // 5. Verify the body hash
+    claims := parsedToken.Claims.(jwt.MapClaims)
+    claimedHash := claims["request_body_sha256"].(string)
+    
+    actualHash := sha256.Sum256(bodyBytes)
+    actualHashStr := hex.EncodeToString(actualHash[:])
+
+    if claimedHash != actualHashStr {
+        return fmt.Errorf("body hash mismatch")
+    }
+
+    return nil
+}
+
+func parsePlaidKey(jwk plaidlib.JWKPublicKey) (*ecdsa.PublicKey, error) {
+    xBytes, err := base64.RawURLEncoding.DecodeString(jwk.X)
+    yBytes, err := base64.RawURLEncoding.DecodeString(jwk.Y)
+    if err != nil {
+        return nil, err
+    }
+
+    return &ecdsa.PublicKey{
+        Curve: elliptic.P256(),
+        X:     new(big.Int).SetBytes(xBytes),
+        Y:     new(big.Int).SetBytes(yBytes),
+    }, nil
 }

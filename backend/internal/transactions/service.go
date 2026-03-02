@@ -2,7 +2,8 @@ package transactions
 
 import (
 	"context"
-	"math/big"
+	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -10,6 +11,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/liam-ruiz/budget/internal/db/sqlcdb"
+	"github.com/liam-ruiz/budget/internal/util"
+	plaidlib "github.com/plaid/plaid-go/v20/plaid"
 )
 
 // Service handles transaction business logic.
@@ -32,10 +35,20 @@ func (s *Service) CreateTransaction(ctx context.Context, params sqlcdb.CreateTra
 	return s.repo.Create(ctx, params)
 }
 
-func (s *Service) CreateTransactions(ctx context.Context, update TransactionUpdate) (error) {
-	var params []sqlcdb.CreateTransactionsParams
-	// take all of the transactions and add them to the database
-	for _, t := range update.Added {
+// CreateTransactions upserts transactions from a Plaid sync update.
+// Both Added and Modified transactions are upserted into the database.
+func (s *Service) CreateTransactions(ctx context.Context, update TransactionUpdate) error {
+	allTransactions := make([]plaidlib.Transaction, 0, len(update.Added)+len(update.Modified))
+	allTransactions = append(allTransactions, update.Added...)
+	allTransactions = append(allTransactions, update.Modified...)
+
+	if len(allTransactions) == 0 {
+		log.Printf("[CreateTransactions] no transactions to upsert for item %s", update.PlaidItemID)
+		return nil
+	}
+
+	var upsertErrors int
+	for _, t := range allTransactions {
 		datetime := t.Datetime
 		var date time.Time
 		if datetime.IsSet() {
@@ -48,26 +61,37 @@ func (s *Service) CreateTransactions(ctx context.Context, update TransactionUpda
 			day, _ := strconv.Atoi(strDate[2])
 			date = time.Date(year, time.Month(month), day, 0, 0, 0, 0, currTime.Location())
 		}
-		params = append(params, sqlcdb.CreateTransactionsParams{
+
+		params := sqlcdb.UpsertTransactionParams{
 			PlaidTransactionID: t.TransactionId,
 			PlaidAccountID:     t.AccountId,
 			TransactionDate:    pgtype.Date{Valid: true, Time: date},
 			TransactionName:    t.Name,
-			Category:           "Expense", // TODO: implement categorization
-			Amount:             floatToNumeric(t.GetAmount()),
+			Amount:             util.Float64ToNumeric(t.GetAmount()),
 			Pending:            t.Pending,
-		})
+			MerchantName:       pgtype.Text{String: t.GetMerchantName(), Valid: t.MerchantName.IsSet()},
+			LogoUrl:            pgtype.Text{String: t.GetLogoUrl(), Valid: t.LogoUrl.IsSet()},
+			CategoryIconUrl:    pgtype.Text{String: t.GetPersonalFinanceCategoryIconUrl(), Valid: t.PersonalFinanceCategoryIconUrl != nil},
+		}
+
+		// Extract personal finance category fields if available
+		if pfc, ok := t.GetPersonalFinanceCategoryOk(); ok && pfc != nil {
+			params.PersonalFinanceCategory = pgtype.Text{String: pfc.GetPrimary(), Valid: true}
+			params.DetailedCategory = pgtype.Text{String: pfc.GetDetailed(), Valid: true}
+			params.CategoryConfidenceLevel = pgtype.Text{String: string(pfc.GetConfidenceLevel()), Valid: true}
+		}
+
+		_, err := s.repo.Upsert(ctx, params)
+		if err != nil {
+			log.Printf("[CreateTransactions] failed to upsert transaction %s: %v", t.TransactionId, err)
+			upsertErrors++
+		}
 	}
-	err := s.repo.CreateMany(ctx, params)
-	if err != nil {
-		return err
+
+	if upsertErrors > 0 {
+		return fmt.Errorf("failed to upsert %d/%d transactions", upsertErrors, len(allTransactions))
 	}
+
+	log.Printf("[CreateTransactions] successfully upserted %d transactions for item %s", len(allTransactions), update.PlaidItemID)
 	return nil
 }
-
-func floatToNumeric(f float64) pgtype.Numeric {
-	// convert float64 to bigInt
-	bigInt := big.NewInt(int64(f))
-	return pgtype.Numeric{Valid: true, Int: bigInt}
-}
-
