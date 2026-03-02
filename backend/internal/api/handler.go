@@ -31,6 +31,7 @@ import (
 type Handler struct {
 	container *dependencies.Container
 	baseURL   string
+	webhookURL string
 }
 
 type PlaidWebhook struct {
@@ -40,18 +41,22 @@ type PlaidWebhook struct {
 }
 
 var (
-	webhookTypeTransactions = "TRANSACTIONS_WEBHOOK"
+	webhookTypeTransactions = "TRANSACTIONS"
 	webhookCodeItemSynced   = "SYNC_UPDATES_AVAILABLE"
+	webhookCodeItemHistorySynced  = "HISTORICAL_UPDATE"
+	webhookCodeInitialUpdate  = "INITIAL_UPDATE"
 )
 
 // NewHandler creates a new API handler with all service dependencies.
 func NewHandler(
 	container *dependencies.Container,
 	baseURL string,
+	webhookURL string,
 ) *Handler {
 	return &Handler{
 		container: container,
 		baseURL:   baseURL,
+		webhookURL: webhookURL,
 	}
 }
 
@@ -60,7 +65,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[Register] %s %s", r.Method, r.URL.Path)
 	var req types.AuthRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Default().Printf("Error decoding request body: %v\n", err)
+		log.Printf("Error decoding request body: %v\n", err)
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -71,14 +76,14 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.container.UserSvc.Register(r.Context(), req.Email, req.Password)
 	if err != nil {
-		log.Default().Printf("Error registering user: %v\n", err)
+		log.Printf("Error registering user: %v\n", err)
 		writeError(w, http.StatusConflict, "email already in use")
 		return
 	}
 
 	token, err := auth.GenerateJWT(user.ID, h.container.Cfg.JWTSecret)
 	if err != nil {
-		log.Default().Printf("Error generating JWT: %v\n", err)
+		log.Printf("Error generating JWT: %v\n", err)
 		writeError(w, http.StatusInternalServerError, "failed to generate token")
 		return
 	}
@@ -97,7 +102,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[Login] %s %s", r.Method, r.URL.Path)
 	var req types.AuthRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Default().Printf("Error decoding request body: %v\n", err)
+		log.Printf("Error decoding request body: %v\n", err)
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -108,14 +113,14 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.container.UserSvc.Authenticate(r.Context(), req.Email, req.Password)
 	if err != nil {
-		log.Default().Printf("Error authenticating user: %v\n", err)
+		log.Printf("Error authenticating user: %v\n", err)
 		writeError(w, http.StatusUnauthorized, "invalid email or password")
 		return
 	}
 
 	token, err := auth.GenerateJWT(user.ID, h.container.Cfg.JWTSecret)
 	if err != nil {
-		log.Default().Printf("Error generating JWT: %v\n", err)
+		log.Printf("Error generating JWT: %v\n", err)
 		writeError(w, http.StatusInternalServerError, "failed to generate token")
 		return
 	}
@@ -134,14 +139,14 @@ func (h *Handler) GetAccounts(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[GetAccounts] %s %s", r.Method, r.URL.Path)
 	userID, err := auth.GetUserID(r.Context())
 	if err != nil {
-		log.Default().Printf("Error getting user ID: %v\n", err)
+		log.Printf("Error getting user ID: %v\n", err)
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
 	accounts, err := h.container.AccountSvc.GetAccounts(r.Context(), userID)
 	if err != nil {
-		log.Default().Printf("Error getting accounts: %v\n", err)
+		log.Printf("Error getting accounts: %v\n", err)
 		writeError(w, http.StatusInternalServerError, "failed to fetch accounts")
 		return
 	}
@@ -154,14 +159,14 @@ func (h *Handler) GetTransactions(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[GetTransactions] %s %s", r.Method, r.URL.Path)
 	userID, err := auth.GetUserID(r.Context())
 	if err != nil {
-		log.Default().Printf("Error getting user ID: %v\n", err)
+		log.Printf("Error getting user ID: %v\n", err)
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
 	txns, err := h.container.TransactionSvc.GetByUser(r.Context(), userID)
 	if err != nil {
-		log.Default().Printf("Error getting transactions: %v\n", err)
+		log.Printf("Error getting transactions: %v\n", err)
 		writeError(w, http.StatusInternalServerError, "failed to fetch transactions")
 		return
 	}
@@ -174,14 +179,14 @@ func (h *Handler) CreateBudget(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[CreateBudget] %s %s", r.Method, r.URL.Path)
 	userID, err := auth.GetUserID(r.Context())
 	if err != nil {
-		log.Default().Printf("Error getting user ID: %v\n", err)
+		log.Printf("Error getting user ID: %v\n", err)
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
 	var req types.CreateBudgetRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Default().Printf("Error decoding request body: %v\n", err)
+		log.Printf("Error decoding request body: %v\n", err)
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -192,7 +197,7 @@ func (h *Handler) CreateBudget(w http.ResponseWriter, r *http.Request) {
 
 	startDate, err := time.Parse("2006-01-02", req.StartDate)
 	if err != nil {
-		log.Default().Printf("Error parsing start date: %v\n", err)
+		log.Printf("Error parsing start date: %v\n", err)
 		writeError(w, http.StatusBadRequest, "start_date must be in YYYY-MM-DD format")
 		return
 	}
@@ -205,7 +210,7 @@ func (h *Handler) CreateBudget(w http.ResponseWriter, r *http.Request) {
 	combined := strings.ReplaceAll(req.LimitAmount, ".", "")
 	limitAmount, err := strconv.Atoi(combined)
 	if err != nil {
-		log.Default().Printf("Error parsing limit amount: %v\n", err)
+		log.Printf("Error parsing limit amount: %v\n", err)
 		writeError(w, http.StatusBadRequest, "limit_amount must be a valid number")
 		return
 	}
@@ -221,7 +226,7 @@ func (h *Handler) CreateBudget(w http.ResponseWriter, r *http.Request) {
 	if req.EndDate != nil {
 		endDate, err := time.Parse("2006-01-02", *req.EndDate)
 		if err != nil {
-			log.Default().Printf("Error parsing end date: %v\n", err)
+			log.Printf("Error parsing end date: %v\n", err)
 			writeError(w, http.StatusBadRequest, "end_date must be in YYYY-MM-DD format")
 			return
 		}
@@ -230,7 +235,7 @@ func (h *Handler) CreateBudget(w http.ResponseWriter, r *http.Request) {
 
 	budget, err := h.container.BudgetSvc.CreateBudget(r.Context(), params)
 	if err != nil {
-		log.Default().Printf("Error creating budget: %v\n", err)
+		log.Printf("Error creating budget: %v\n", err)
 		writeError(w, http.StatusInternalServerError, "failed to create budget")
 		return
 	}
@@ -243,14 +248,14 @@ func (h *Handler) GetBudgets(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[GetBudgets] %s %s", r.Method, r.URL.Path)
 	userID, err := auth.GetUserID(r.Context())
 	if err != nil {
-		log.Default().Printf("Error getting user ID: %v\n", err)
+		log.Printf("Error getting user ID: %v\n", err)
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
 
 	list, err := h.container.BudgetSvc.GetBudgets(r.Context(), userID)
 	if err != nil {
-		log.Default().Printf("Error getting budgets: %v\n", err)
+		log.Printf("Error getting budgets: %v\n", err)
 		writeError(w, http.StatusInternalServerError, "failed to fetch budgets")
 		return
 	}
@@ -319,7 +324,7 @@ func (h *Handler) CreateLinkToken(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[CreateLinkToken] %s %s", r.Method, r.URL.Path)
 	userID, err := auth.GetUserID(r.Context())
 	if err != nil {
-		log.Default().Printf("Error getting user ID: %v\n", err)
+		log.Printf("Error getting user ID: %v\n", err)
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
@@ -338,11 +343,11 @@ func (h *Handler) CreateLinkToken(w http.ResponseWriter, r *http.Request) {
 		user,
 	)
 	linkReq.SetProducts(products)
-	linkReq.SetWebhook(h.baseURL + ":" + h.container.Cfg.Port + "/plaid/webhook")
+	linkReq.SetWebhook(h.webhookURL+ "/plaid/webhook")
 
 	resp, err := h.container.PlaidAPISvc.CreateLinkToken(r.Context(), linkReq)
 	if err != nil {
-		log.Default().Printf("Error creating link token: %v\n", err)
+		log.Printf("Error creating link token: %v\n", err)
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("failed to create link token: %v", err))
 		return
 	}
@@ -378,14 +383,14 @@ func (h *Handler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	// get the public key
 	resp, err := h.container.PlaidAPISvc.WebhookPublicKeyGet(r.Context(), kid)
 	if err != nil {
-		log.Default().Printf("Error verifying request: %v\n", err)
+		log.Printf("Error getting public key: %v\n", err)
 		writeError(w, http.StatusBadRequest, "invalid request")
 		return
 	}
 
 	key, ok := resp.GetKeyOk()
 	if !ok {
-		log.Default().Printf("Error: request is not from plaid\n")
+		log.Printf("Error: request is not from plaid\n")
 		writeError(w, http.StatusBadRequest, "invalid request")
 		return
 	}
@@ -393,6 +398,7 @@ func (h *Handler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	// read the body for verification
 	bodyBytes, err := io.ReadAll(r.Body)
     if err != nil {
+		log.Printf("Error reading body: %v\n", err)
         writeError(w, http.StatusInternalServerError, "could not read body")
         return
     }
@@ -400,9 +406,9 @@ func (h *Handler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
     r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
 	// verify the request
-	err = h.verifyPlaidWebhook(r.Context(), kid, *key, bodyBytes)
+	err = h.verifyPlaidWebhook(r.Context(), signedJWT, *key, bodyBytes)
 	if err != nil {
-		log.Default().Printf("Error verifying request: %v\n", err)
+		log.Printf("Error verifying request: %v\n", err)
 		writeError(w, http.StatusBadRequest, "invalid request")
 		return
 	}
@@ -410,7 +416,7 @@ func (h *Handler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	
 	var webhook PlaidWebhook
 	if err := json.NewDecoder(r.Body).Decode(&webhook); err != nil {
-		log.Default().Printf("Error decoding request body: %v\n", err)
+		log.Printf("Error decoding request body: %v\n", err)
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
@@ -423,10 +429,16 @@ func (h *Handler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 		case webhookCodeItemSynced:
 			log.Printf("Data is ready for Item: %s", webhook.PlaidItemID)
         
-			
 			go func(itemID string) {
+				// check for cursor in db, might be empty
+				cursor, err := h.container.AccountSvc.GetCursor(context.Background(), itemID)
+				if err != nil {
+					log.Printf("Error getting cursor for %s: %v", itemID, err)
+					return
+				}
+				
 				// TODO: update to check for cursor in db
-				err := h.container.AccountSvc.SyncTransactions(context.Background(), itemID, "")
+				err := h.container.AccountSvc.SyncTransactions(context.Background(), itemID, cursor)
 				if err != nil {
 					log.Printf("Async sync failed for %s: %v", itemID, err)
 				}
@@ -434,14 +446,18 @@ func (h *Handler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 				// update cursor in db
 				
 			}(webhook.PlaidItemID)
-			break
+		
+		// ignore initial update and historical sync as these are for backwards compatibility
+		case webhookCodeInitialUpdate, webhookCodeItemHistorySynced:
+			log.Printf("Item updated for Item, ignoring: %s", webhook.PlaidItemID)
+
 		default:
-			log.Default().Printf("Unknown webhook code: %s\n", webhook.WebhookCode)
+			log.Printf("Unknown webhook code: %s\n", webhook.WebhookCode)
 			writeError(w, http.StatusBadRequest, "unknown webhook code")
 			return
 		}
 	default:
-		log.Default().Printf("Unknown webhook type: %s\n", webhook.WebhookType)
+		log.Printf("Unknown webhook type: %s\n", webhook.WebhookType)
 		writeError(w, http.StatusBadRequest, "unknown webhook type")
 		return
 	}
@@ -467,15 +483,20 @@ func (h *Handler) verifyPlaidWebhook(ctx context.Context, signedJWT string, key 
         return err
     }
 
-    // 4. Fully verify the JWT signature
-    parsedToken, err := jwt.Parse(signedJWT, func(t *jwt.Token) (any, error) {
+	parser := jwt.NewParser(jwt.WithLeeway(5 * time.Minute))
+
+    // fully verify the JWT signature
+    parsedToken, err := parser.Parse(signedJWT, func(t *jwt.Token) (any, error) {
         return pubKey, nil
     })
     if err != nil || !parsedToken.Valid {
+		if err != nil {
+			log.Printf("Error parsing JWT: %v\n", err)
+		}
         return fmt.Errorf("invalid jwt signature")
     }
 
-    // 5. Verify the body hash
+    // verify the body hash
     claims := parsedToken.Claims.(jwt.MapClaims)
     claimedHash := claims["request_body_sha256"].(string)
     

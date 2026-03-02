@@ -57,7 +57,7 @@ func Run(cfg *config.Config) error {
 
 
 	// Now NewHandler only takes the container
-	handler := api.NewHandler(cont, cfg.BaseURL)
+	handler := api.NewHandler(cont, cfg.BaseURL, cfg.WebhookURL)
 
 	log.Println("Application Started.")
 	return http.ListenAndServe(":"+cfg.Port, handler.Routes())
