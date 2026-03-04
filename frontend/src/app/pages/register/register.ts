@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal, WritableSignal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth';
@@ -15,20 +15,20 @@ export class RegisterPage {
 
     email = '';
     password = '';
-    error = '';
-    loading = false;
+    error: WritableSignal<string> = signal('');
+    loading: WritableSignal<boolean> = signal(false);
 
     onSubmit() {
-        this.error = '';
-        this.loading = true;
+        this.error.set('');
+        this.loading.set(true);
         this.auth.register(this.email, this.password).subscribe({
             next: () => {
-                this.loading = false;
+                this.loading.set(false);
                 this.router.navigate(['/dashboard']);
             },
             error: (err) => {
-                this.loading = false;
-                this.error = err?.error?.error || 'Registration failed.';
+                this.loading.set(false);
+                this.error.set(err?.error?.error || 'Registration failed.');
             },
         });
     }

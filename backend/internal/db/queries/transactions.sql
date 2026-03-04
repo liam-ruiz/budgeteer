@@ -85,7 +85,7 @@ WHERE
 ORDER BY transaction_date DESC;
 
 -- name: GetTransactionsByUserID :many
-SELECT t.*
+SELECT t.*, ba.account_name
 FROM
     transactions t
     JOIN bank_accounts ba ON t.plaid_account_id = ba.plaid_account_id

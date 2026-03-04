@@ -27,6 +27,7 @@ type Budget struct {
 	AppUserID    uuid.UUID
 	Category     string
 	LimitAmount  pgtype.Numeric
+	AmountSpent  pgtype.Numeric
 	BudgetPeriod string
 	StartDate    pgtype.Date
 	EndDate      pgtype.Date

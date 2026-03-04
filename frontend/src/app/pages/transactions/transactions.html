@@ -24,6 +24,7 @@
                 <tr>
                     <th>Date</th>
                     <th>Name</th>
+                    <th>Account</th>
                     <th>Category</th>
                     <th>Amount</th>
                     <th>Status</th>
@@ -46,6 +47,7 @@
                             </div>
                         </div>
                     </td>
+                    <td class="txn-account-name">{{ txn.account_name }}</td>
                     <td>
                         @if (txn.personal_finance_category) {
                         <div class="txn-category-row">
@@ -54,10 +56,10 @@
                             }
                             <span class="badge badge-accent">{{ formatCategory(txn.personal_finance_category) }}</span>
                         </div>
-                        } 
+                        }
                     </td>
-                    <td class="txn-amount" [class.negative]="parseFloat(txn.amount) < 0">
-                        {{ formatCurrency(txn.amount) }}
+                    <td class="txn-amount" [class.incoming]="parseFloat(txn.amount) < 0">
+                        {{ formatAmount(txn.amount) }}
                     </td>
                     <td>
                         @if (txn.pending) {

@@ -20,3 +20,6 @@ SELECT * FROM budgets WHERE id = $1;
 
 -- name: DeleteBudget :exec
 DELETE FROM budgets WHERE id = $1;
+
+-- name: UpdateBudgetAmountSpent :one
+UPDATE budgets SET amount_spent = $2 WHERE id = $1 RETURNING *;

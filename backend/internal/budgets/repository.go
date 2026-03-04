@@ -64,7 +64,7 @@ func toBudget(row sqlcdb.Budget) Budget {
 		endDate = sql.NullTime{}
 	} else {
 		endDate = sql.NullTime{
-			Time: row.EndDate.Time,
+			Time:  row.EndDate.Time,
 			Valid: true,
 		}
 	}
@@ -74,10 +74,11 @@ func toBudget(row sqlcdb.Budget) Budget {
 		AppUserID:   row.AppUserID,
 		Category:    row.Category,
 		LimitAmount: util.NumericToString(row.LimitAmount),
+		AmountSpent: util.NumericToString(row.AmountSpent),
 		Period:      row.BudgetPeriod,
 		StartDate:   row.StartDate.Time,
 		EndDate:     endDate,
 		CreatedAt:   row.CreatedAt.Time,
-	}	
-	
+	}
+
 }

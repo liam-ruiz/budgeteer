@@ -5,10 +5,42 @@
     gap: 1rem;
 }
 
+/* ── Form ── */
+
+.form-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.25rem;
+}
+
+.form-header .form-title {
+    margin-bottom: 0;
+}
+
 .form-title {
     font-size: 1rem;
     font-weight: 600;
     margin-bottom: 1.25rem;
+    color: var(--text-primary);
+}
+
+.close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.close-btn:hover {
+    background: var(--surface-hover);
     color: var(--text-primary);
 }
 
@@ -24,9 +56,18 @@
     justify-content: flex-end;
 }
 
+.field-error {
+    font-size: 0.75rem;
+    color: var(--danger);
+    margin-top: 0.25rem;
+    display: block;
+}
+
+/* ── Budget Cards ── */
+
 .budgets-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 1rem;
 }
 
@@ -43,7 +84,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 0.75rem;
+    margin-bottom: 1rem;
 }
 
 .budget-category {
@@ -52,15 +93,104 @@
     color: var(--text-primary);
 }
 
-.budget-limit {
-    font-size: 1.5rem;
+/* ── Amounts Row ── */
+
+.budget-amounts {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 1.25rem;
+    gap: 0.5rem;
+}
+
+.budget-amount-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.amount-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+}
+
+.amount-value {
+    font-size: 1.1rem;
     font-weight: 700;
-    color: var(--accent);
-    margin-bottom: 0.5rem;
+    color: var(--text-primary);
     letter-spacing: -0.02em;
 }
+
+.amount-spent {
+    color: var(--warning);
+}
+
+.amount-remaining {
+    color: var(--success);
+}
+
+.amount-remaining.over-budget {
+    color: var(--danger);
+}
+
+/* ── Progress Bars ── */
+
+.progress-section {
+    margin-bottom: 0.75rem;
+}
+
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.375rem;
+}
+
+.progress-label {
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.progress-pct {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.progress-track {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 99px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    border-radius: 99px;
+    transition: width 0.4s ease;
+    min-width: 0;
+}
+
+.progress-fill-spending {
+    background: var(--accent);
+}
+
+.progress-fill-spending.over-budget {
+    background: var(--danger);
+}
+
+.progress-fill-time {
+    background: var(--text-muted);
+}
+
+/* ── Dates ── */
 
 .budget-dates {
     font-size: 0.75rem;
     color: var(--text-muted);
+    margin-top: 0.25rem;
 }

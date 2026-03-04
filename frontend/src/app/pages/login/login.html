@@ -11,8 +11,8 @@
             <p>Sign in to your Budget account</p>
         </div>
 
-        @if (error) {
-        <div class="auth-error">{{ error }}</div>
+        @if (error()) {
+        <div class="auth-error">{{ error() }}</div>
         }
 
         <form (ngSubmit)="onSubmit()">
@@ -25,8 +25,8 @@
                 <input id="password" type="password" placeholder="••••••••" [(ngModel)]="password" name="password"
                     required>
             </div>
-            <button type="submit" class="btn btn-primary auth-submit" [disabled]="loading">
-                {{ loading ? 'Signing in…' : 'Sign In' }}
+            <button type="submit" class="btn btn-primary auth-submit" [disabled]="loading()">
+                {{ loading() ? 'Signing in…' : 'Sign In' }}
             </button>
         </form>
 

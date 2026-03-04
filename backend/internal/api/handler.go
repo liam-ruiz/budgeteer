@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/liam-ruiz/budget/internal/api/types"
 	"github.com/liam-ruiz/budget/internal/auth"
@@ -132,6 +133,29 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 			Email: user.Email,
 		},
 	})
+}
+
+func (h *Handler) Validate(w http.ResponseWriter, r *http.Request) {
+    // If the code gets here, the Middleware already verified the token!
+    // We just pull the userID out of the context.
+    userIDString := r.Context().Value("userID").(string)
+	userID, err := uuid.Parse(userIDString)
+	if err != nil {
+		log.Printf("Error parsing userID: %v\n", err)
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+    user, err := h.container.UserSvc.GetUser(r.Context(), userID)
+    if err != nil {
+        writeError(w, http.StatusUnauthorized, "user not found")
+        return
+    }
+
+    writeJSON(w, http.StatusOK, types.UserResponse{
+        ID:    user.ID,
+        Email: user.Email,
+    })
 }
 
 // GetAccounts returns all linked bank accounts for the authenticated user.
@@ -421,8 +445,6 @@ func (h *Handler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: make it so that it waits for historical sync to finish 
-	// before syncing so that only 1 fetch happens.
 	switch webhook.WebhookType {
 	case webhookTypeTransactions:
 		switch webhook.WebhookCode {
@@ -431,19 +453,16 @@ func (h *Handler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
         
 			go func(itemID string) {
 				// check for cursor in db, might be empty
-				cursor, err := h.container.AccountSvc.GetCursor(context.Background(), itemID)
+				cursor, err := h.container.PlaidItemSvc.GetCursor(context.Background(), itemID)
 				if err != nil {
 					log.Printf("Error getting cursor for %s: %v", itemID, err)
 					return
 				}
 				
-				// TODO: update to check for cursor in db
-				err := h.container.AccountSvc.SyncTransactions(context.Background(), itemID, cursor)
+				err = h.container.AccountSvc.SyncTransactions(context.Background(), itemID, cursor)
 				if err != nil {
 					log.Printf("Async sync failed for %s: %v", itemID, err)
 				}
-
-				// update cursor in db
 				
 			}(webhook.PlaidItemID)
 		

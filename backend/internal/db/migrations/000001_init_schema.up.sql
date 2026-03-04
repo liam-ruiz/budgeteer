@@ -54,6 +54,7 @@ CREATE TABLE budgets (
     app_user_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     category TEXT NOT NULL,
     limit_amount NUMERIC(12, 2) NOT NULL,
+    amount_spent NUMERIC(12, 2) NOT NULL DEFAULT 0,
     budget_period TEXT NOT NULL DEFAULT 'monthly',
     start_date DATE NOT NULL,
     end_date DATE,

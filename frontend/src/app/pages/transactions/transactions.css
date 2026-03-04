@@ -50,10 +50,15 @@
 
 .txn-amount {
     font-weight: 600;
-    color: var(--success) !important;
+    color: var(--text-primary);
     font-variant-numeric: tabular-nums;
 }
 
-.txn-amount.negative {
-    color: var(--danger) !important;
+.txn-amount.incoming {
+    color: var(--success) !important;
+}
+
+.txn-account-name {
+    color: var(--text-muted);
+    font-size: 0.85rem;
 }

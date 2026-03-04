@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -44,6 +45,14 @@ func (s *Service) Authenticate(ctx context.Context, email string, password strin
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
 		return User{}, ErrInvalidCredentials
+	}
+	return user, nil
+}
+
+func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
+	user, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return User{}, fmt.Errorf("getting user: %w", err)
 	}
 	return user, nil
 }

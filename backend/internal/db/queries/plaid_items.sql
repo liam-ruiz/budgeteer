@@ -31,3 +31,6 @@ SET
     updated_at = now()
 WHERE
     plaid_item_id = $1;
+
+-- name: GetCursor :one
+SELECT plaid_cursor FROM plaid_items WHERE plaid_item_id = $1 LIMIT 1;

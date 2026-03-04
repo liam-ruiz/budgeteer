@@ -15,21 +15,25 @@ func (h *Handler) Routes() http.Handler {
 	r.Use(corsMiddleware)
 
 	// Public auth routes
-	r.Post("/auth/register", h.Register)
-	r.Post("/auth/login", h.Login)
+	r.Post("/api/auth/register", h.Register)
+	r.Post("/api/auth/login", h.Login)
 
 	// Protected routes — require a valid JWT
 	r.Group(func(r chi.Router) {
 		r.Use(auth.Middleware(h.container.Cfg.JWTSecret))
 
-		r.Get("/accounts", h.GetAccounts)
-		r.Get("/transactions", h.GetTransactions)
-		r.Post("/budgets", h.CreateBudget)
-		r.Get("/budgets", h.GetBudgets)
-		r.Post("/plaid/exchange", h.ExchangePlaidPublicToken)
-		r.Post("/plaid/link-token", h.CreateLinkToken)
+		// validate route for frontend
+		r.Get("/api/auth/validate", h.Validate)
+
+		r.Get("/api/accounts", h.GetAccounts)
+		r.Get("/api/transactions", h.GetTransactions)
+		r.Post("/api/budgets", h.CreateBudget)
+		r.Get("/api/budgets", h.GetBudgets)
+		r.Post("/api/plaid/exchange", h.ExchangePlaidPublicToken)
+		r.Post("/api/plaid/link-token", h.CreateLinkToken)
 	})
 
+	//
 	r.Post("/plaid/webhook", h.HandleWebhook)
 	return r
 }
@@ -37,6 +41,7 @@ func (h *Handler) Routes() http.Handler {
 // corsMiddleware adds CORS headers so the frontend can reach the API.
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// TODO: update to only allow requests from provided environment variable
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")

@@ -21,3 +21,7 @@ func (s *Service) GetPlaidItemByPlaidItemID(ctx context.Context, plaidItemID str
 func (s *Service) CreatePlaidItem(ctx context.Context, params sqlcdb.CreatePlaidItemParams) (sqlcdb.PlaidItem, error) {
 	return s.repo.CreatePlaidItem(ctx, params)
 }
+
+func (s *Service) GetCursor(ctx context.Context, plaidItemID string) (string, error) {
+	return s.repo.GetCursor(ctx, plaidItemID)
+}

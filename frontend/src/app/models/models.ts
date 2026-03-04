@@ -39,6 +39,7 @@ export interface Transaction {
     category_confidence_level?: string;
     category_icon_url?: string;
     created_at: string;
+    account_name?: string;
 }
 
 // ── Budgets ──
@@ -48,6 +49,7 @@ export interface Budget {
     user_id: string;
     category: string;
     limit_amount: string;
+    amount_spent: string;
     period: string;
     start_date: string;
     end_date: string | null;

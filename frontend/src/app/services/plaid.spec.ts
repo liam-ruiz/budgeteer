@@ -1,13 +1,13 @@
 import { TestBed } from '@angular/core/testing';
 
-import { Plaid } from './plaid';
+import { PlaidService } from './plaid';
 
-describe('Plaid', () => {
-  let service: Plaid;
+describe('PlaidService', () => {
+  let service: PlaidService;
 
   beforeEach(() => {
     TestBed.configureTestingModule({});
-    service = TestBed.inject(Plaid);
+    service = TestBed.inject(PlaidService);
   });
 
   it('should be created', () => {

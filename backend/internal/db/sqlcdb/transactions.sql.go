@@ -153,7 +153,7 @@ func (q *Queries) GetTransactionsByAccountID(ctx context.Context, plaidAccountID
 }
 
 const getTransactionsByUserID = `-- name: GetTransactionsByUserID :many
-SELECT t.plaid_transaction_id, t.plaid_account_id, t.transaction_date, t.transaction_name, t.amount, t.pending, t.merchant_name, t.logo_url, t.personal_finance_category, t.detailed_category, t.category_confidence_level, t.category_icon_url, t.created_at
+SELECT t.plaid_transaction_id, t.plaid_account_id, t.transaction_date, t.transaction_name, t.amount, t.pending, t.merchant_name, t.logo_url, t.personal_finance_category, t.detailed_category, t.category_confidence_level, t.category_icon_url, t.created_at, ba.account_name
 FROM
     transactions t
     JOIN bank_accounts ba ON t.plaid_account_id = ba.plaid_account_id
@@ -163,15 +163,32 @@ WHERE
 ORDER BY t.transaction_date DESC
 `
 
-func (q *Queries) GetTransactionsByUserID(ctx context.Context, appUserID uuid.UUID) ([]Transaction, error) {
+type GetTransactionsByUserIDRow struct {
+	PlaidTransactionID      string
+	PlaidAccountID          string
+	TransactionDate         pgtype.Date
+	TransactionName         string
+	Amount                  pgtype.Numeric
+	Pending                 bool
+	MerchantName            pgtype.Text
+	LogoUrl                 pgtype.Text
+	PersonalFinanceCategory pgtype.Text
+	DetailedCategory        pgtype.Text
+	CategoryConfidenceLevel pgtype.Text
+	CategoryIconUrl         pgtype.Text
+	CreatedAt               pgtype.Timestamptz
+	AccountName             string
+}
+
+func (q *Queries) GetTransactionsByUserID(ctx context.Context, appUserID uuid.UUID) ([]GetTransactionsByUserIDRow, error) {
 	rows, err := q.db.Query(ctx, getTransactionsByUserID, appUserID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Transaction
+	var items []GetTransactionsByUserIDRow
 	for rows.Next() {
-		var i Transaction
+		var i GetTransactionsByUserIDRow
 		if err := rows.Scan(
 			&i.PlaidTransactionID,
 			&i.PlaidAccountID,
@@ -186,6 +203,7 @@ func (q *Queries) GetTransactionsByUserID(ctx context.Context, appUserID uuid.UU
 			&i.CategoryConfidenceLevel,
 			&i.CategoryIconUrl,
 			&i.CreatedAt,
+			&i.AccountName,
 		); err != nil {
 			return nil, err
 		}

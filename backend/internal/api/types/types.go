@@ -61,3 +61,4 @@ type PlaidWebhook struct {
 	WebhookCode string `json:"webhook_code"`
 	PlaidItemID string `json:"item_id"`
 }
+

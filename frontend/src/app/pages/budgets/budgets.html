@@ -5,31 +5,45 @@
                 <h1>Budgets</h1>
                 <p>Set spending limits and stay on track</p>
             </div>
-            <button class="btn btn-primary" (click)="showForm = !showForm">
+            @if (!showForm()) {
+            <button class="btn btn-primary" (click)="showForm.set(true)">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M5 12h14" />
                     <path d="M12 5v14" />
                 </svg>
-                {{ showForm ? 'Cancel' : 'New Budget' }}
+                New Budget
             </button>
+            }
         </div>
     </div>
 
     <!-- Create form -->
-    @if (showForm) {
+    @if (showForm()) {
     <div class="card budget-form animate-in" style="margin-bottom: 1.5rem;">
-        <h2 class="form-title">Create a Budget</h2>
-        <form (ngSubmit)="createBudget()" class="budget-form-grid">
+        <div class="form-header">
+            <h2 class="form-title">Create a Budget</h2>
+            <button class="close-btn" type="button" (click)="showForm.set(false)" aria-label="Close">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 6 6 18" />
+                    <path d="m6 6 12 12" />
+                </svg>
+            </button>
+        </div>
+        <form (ngSubmit)="createBudget()" #budgetForm="ngForm" class="budget-form-grid">
             <div class="form-group">
                 <label for="category">Category</label>
                 <input id="category" type="text" placeholder="e.g. Groceries, Entertainment" [(ngModel)]="form.category"
                     name="category" required>
             </div>
             <div class="form-group">
-                <label for="limit">Monthly Limit</label>
-                <input id="limit" type="number" step="0.01" placeholder="500.00" [(ngModel)]="form.limit_amount"
-                    name="limit" required>
+                <label for="limit">Spending Limit</label>
+                <input id="limit" type="number" step="0.01" min="0.01" placeholder="500.00"
+                    [(ngModel)]="form.limit_amount" name="limit" required>
+                @if (budgetForm.controls['limit']?.invalid && budgetForm.controls['limit']?.touched) {
+                <span class="field-error">Enter a valid amount</span>
+                }
             </div>
             <div class="form-group">
                 <label for="period">Period</label>
@@ -37,26 +51,39 @@
                     <option value="weekly">Weekly</option>
                     <option value="monthly">Monthly</option>
                     <option value="yearly">Yearly</option>
+                    <option value="one-time">One-Time</option>
                 </select>
             </div>
             <div class="form-group">
                 <label for="start_date">Start Date</label>
                 <input id="start_date" type="date" [(ngModel)]="form.start_date" name="start_date" required>
+                @if (budgetForm.controls['start_date']?.invalid && budgetForm.controls['start_date']?.touched) {
+                <span class="field-error">Enter a valid date</span>
+                }
             </div>
+            @if (form.period === 'one-time') {
+            <div class="form-group animate-in">
+                <label for="end_date">End Date</label>
+                <input id="end_date" type="date" [(ngModel)]="form.end_date" name="end_date" required>
+                @if (budgetForm.controls['end_date']?.invalid && budgetForm.controls['end_date']?.touched) {
+                <span class="field-error">Enter a valid end date</span>
+                }
+            </div>
+            }
             <div class="form-actions">
-                <button type="submit" class="btn btn-primary" [disabled]="saving">
-                    {{ saving ? 'Saving…' : 'Save Budget' }}
+                <button type="submit" class="btn btn-primary" [disabled]="saving() || budgetForm.invalid">
+                    {{ saving() ? 'Saving…' : 'Save Budget' }}
                 </button>
             </div>
         </form>
     </div>
     }
 
-    @if (loading) {
+    @if (loading()) {
     <div class="empty-state">
         <p>Loading budgets…</p>
     </div>
-    } @else if (budgets.length === 0) {
+    } @else if (budgets().length === 0) {
     <div class="empty-state card">
         <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -69,17 +96,60 @@
     </div>
     } @else {
     <div class="budgets-grid">
-        @for (b of budgets; track b.id) {
+        @for (b of budgets(); track b.id) {
         <div class="budget-card card">
             <div class="budget-top">
                 <span class="budget-category">{{ b.category }}</span>
                 <span class="badge badge-accent">{{ b.period }}</span>
             </div>
-            <div class="budget-limit">{{ formatCurrency(b.limit_amount) }}</div>
+
+            <!-- Amounts row -->
+            <div class="budget-amounts">
+                <div class="budget-amount-item">
+                    <span class="amount-label">Budget</span>
+                    <span class="amount-value">{{ formatCurrency(b.limit_amount) }}</span>
+                </div>
+                <div class="budget-amount-item">
+                    <span class="amount-label">Spent</span>
+                    <span class="amount-value amount-spent">{{ formatCurrency(b.amount_spent) }}</span>
+                </div>
+                <div class="budget-amount-item">
+                    <span class="amount-label">Remaining</span>
+                    <span class="amount-value amount-remaining" [class.over-budget]="getRemainingNum(b) < 0">{{
+                        formatCurrency(getRemainingAmount(b)) }}</span>
+                </div>
+            </div>
+
+            <!-- Spending progress -->
+            <div class="progress-section">
+                <div class="progress-header">
+                    <span class="progress-label">Spending</span>
+                    <span class="progress-pct">{{ getSpentPercent(b) }}%</span>
+                </div>
+                <div class="progress-track">
+                    <div class="progress-fill progress-fill-spending"
+                        [style.width.%]="Math.min(getSpentPercent(b), 100)"
+                        [class.over-budget]="getSpentPercent(b) > 100">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Time elapsed progress -->
+            <div class="progress-section">
+                <div class="progress-header">
+                    <span class="progress-label">Time Elapsed</span>
+                    <span class="progress-pct">{{ getTimeElapsedPercent(b) }}%</span>
+                </div>
+                <div class="progress-track">
+                    <div class="progress-fill progress-fill-time" [style.width.%]="getTimeElapsedPercent(b)">
+                    </div>
+                </div>
+            </div>
+
             <div class="budget-dates">
-                <span>From {{ b.start_date }}</span>
+                <span>{{ b.start_date }}</span>
                 @if (b.end_date) {
-                <span> · To {{ b.end_date }}</span>
+                <span> → {{ b.end_date }}</span>
                 }
             </div>
         </div>

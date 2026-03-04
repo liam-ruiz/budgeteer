@@ -26,7 +26,7 @@ func NewService(repo Repository) *Service {
 }
 
 // GetByUser returns all transactions across all linked accounts for a user.
-func (s *Service) GetByUser(ctx context.Context, userID uuid.UUID) ([]Transaction, error) {
+func (s *Service) GetByUser(ctx context.Context, userID uuid.UUID) ([]TransactionWithAccountName, error) {
 	return s.repo.GetByUserID(ctx, userID)
 }
 

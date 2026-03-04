@@ -111,7 +111,6 @@ body {
     font-size: 0.9rem;
 }
 
-/* ── Form Elements ── */
 input,
 select {
     width: 100%;
@@ -124,12 +123,17 @@ select {
     font-family: inherit;
     transition: border-color 0.15s ease;
     outline: none;
+    color-scheme: dark;
 }
 
 input:focus,
 select:focus {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-surface);
+}
+
+input.ng-invalid.ng-touched {
+    border-color: var(--danger);
 }
 
 input::placeholder {

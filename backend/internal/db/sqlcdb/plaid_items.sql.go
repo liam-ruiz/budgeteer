@@ -53,6 +53,17 @@ func (q *Queries) CreatePlaidItem(ctx context.Context, arg CreatePlaidItemParams
 	return i, err
 }
 
+const getCursor = `-- name: GetCursor :one
+SELECT plaid_cursor FROM plaid_items WHERE plaid_item_id = $1 LIMIT 1
+`
+
+func (q *Queries) GetCursor(ctx context.Context, plaidItemID string) (pgtype.Text, error) {
+	row := q.db.QueryRow(ctx, getCursor, plaidItemID)
+	var plaid_cursor pgtype.Text
+	err := row.Scan(&plaid_cursor)
+	return plaid_cursor, err
+}
+
 const getPlaidItemByID = `-- name: GetPlaidItemByID :one
 SELECT plaid_item_id, app_user_id, plaid_access_token, institution_name, plaid_cursor, last_synced_at, created_at, updated_at FROM plaid_items WHERE plaid_item_id = $1
 `

@@ -40,7 +40,7 @@ func Run(cfg *config.Config) error {
 	}
 
 	// Build the container
-	plaidItemService := plaid_items.NewService(queries)
+	plaidItemService := plaid_items.NewService(plaid_items.NewRepository(queries))
 	plaidClient := plaid.NewPlaidClient(cfg.PlaidClientID, cfg.PlaidSecret, cfg.PlaidEnv)
 	plaidService := plaid.NewService(plaidClient)
 	transactionsService := transactions.NewService(transactions.NewRepository(queries))

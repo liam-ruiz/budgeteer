@@ -13,7 +13,7 @@ type Repository interface {
 	Create(ctx context.Context, params sqlcdb.CreateTransactionParams) (Transaction, error)
 	Upsert(ctx context.Context, params sqlcdb.UpsertTransactionParams) (Transaction, error)
 	GetByAccountID(ctx context.Context, plaidAccountID string) ([]Transaction, error)
-	GetByUserID(ctx context.Context, appUserID uuid.UUID) ([]Transaction, error)
+	GetByUserID(ctx context.Context, appUserID uuid.UUID) ([]TransactionWithAccountName, error)
 }
 
 type repository struct {
@@ -49,12 +49,39 @@ func (r *repository) GetByAccountID(ctx context.Context, plaidAccountID string) 
 	return toTransactions(rows), nil
 }
 
-func (r *repository) GetByUserID(ctx context.Context, userID uuid.UUID) ([]Transaction, error) {
+func (r *repository) GetByUserID(ctx context.Context, userID uuid.UUID) ([]TransactionWithAccountName, error) {
 	rows, err := r.q.GetTransactionsByUserID(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	return toTransactions(rows), nil
+	return toTransactionsWithAccountName(rows), nil
+}
+
+func toTransactionWithAccountName(row sqlcdb.GetTransactionsByUserIDRow) TransactionWithAccountName {
+	return TransactionWithAccountName{
+		PlaidTransactionID:      row.PlaidTransactionID,
+		AccountID:               row.PlaidAccountID,
+		Date:                    row.TransactionDate.Time.Format("2006-01-02"),
+		Name:                    row.TransactionName,
+		Amount:                  util.NumericToString(row.Amount),
+		Pending:                 row.Pending,
+		MerchantName:            row.MerchantName.String,
+		LogoUrl:                 row.LogoUrl.String,
+		PersonalFinanceCategory: row.PersonalFinanceCategory.String,
+		DetailedCategory:        row.DetailedCategory.String,
+		CategoryConfidenceLevel: row.CategoryConfidenceLevel.String,
+		CategoryIconUrl:         row.CategoryIconUrl.String,
+		CreatedAt:               row.CreatedAt.Time,
+		AccountName: row.AccountName,
+	}
+}
+
+func toTransactionsWithAccountName(rows []sqlcdb.GetTransactionsByUserIDRow) []TransactionWithAccountName {
+	out := make([]TransactionWithAccountName, len(rows))
+	for i, row := range rows {
+		out[i] = toTransactionWithAccountName(row)
+	}
+	return out
 }
 
 func toTransaction(row sqlcdb.Transaction) Transaction {

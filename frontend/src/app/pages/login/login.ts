@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal, WritableSignal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth';
@@ -15,20 +15,20 @@ export class LoginPage {
 
     email = '';
     password = '';
-    error = '';
-    loading = false;
+    error: WritableSignal<string> = signal('');
+    loading: WritableSignal<boolean> = signal(false);
 
     onSubmit() {
-        this.error = '';
-        this.loading = true;
+        this.error.set('');
+        this.loading.set(true);
         this.auth.login(this.email, this.password).subscribe({
             next: () => {
-                this.loading = false;
+                this.loading.set(false);
                 this.router.navigate(['/dashboard']);
             },
             error: () => {
-                this.loading = false;
-                this.error = 'Invalid email or password.';
+                this.loading.set(false);
+                this.error.set('Invalid email or password.');
             },
         });
     }

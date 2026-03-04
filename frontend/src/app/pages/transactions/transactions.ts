@@ -45,6 +45,16 @@ export class TransactionsPage implements OnInit {
         return parseFloat(value || '0');
     }
 
+    formatAmount(value: string): string {
+        const n = parseFloat(value || '0');
+        const abs = Math.abs(n);
+        const formatted = abs.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+        if (n < 0) {
+            return '+' + formatted;
+        }
+        return formatted;
+    }
+
     formatCategory(category: string): string {
         return category
             .toLowerCase()

@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { BehaviorSubject, catchError, map, Observable, of, tap } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { AuthResponse } from '../models/models';
 
@@ -51,4 +51,25 @@ export class AuthService {
     private hasToken(): boolean {
         return !!localStorage.getItem(TOKEN_KEY);
     }
+
+    // Add this to your AuthService
+checkAuthStatus(): Observable<boolean> {
+    const token = this.getToken();
+    if (!token) {
+        this.loggedIn$.next(false);
+        return of(false);
+    }
+
+    // Call your 'profile' or 'me' endpoint
+    return this.http.get<any>(`${environment.apiUrl}/auth/validate`).pipe(
+        map(() => {
+            this.loggedIn$.next(true);
+            return true;
+        }),
+        catchError(() => {
+            this.logout(); // Clear local storage and state if server rejects token
+            return of(false);
+        })
+    );
+}
 }
