@@ -18,7 +18,6 @@ type Config struct {
 	Port           string
 	ResetDB        bool
 	AllowedOrigins []string
-	BaseURL        string
 	WebhookURL     string
 }
 
@@ -54,7 +53,6 @@ func Load() (*Config, error) {
 		Port:           os.Getenv("BACKEND_PORT"),
 		ResetDB:        os.Getenv("RESET_DB") == "true",
 		AllowedOrigins: strings.Split(os.Getenv("ALLOWED_ORIGINS"), ","),
-		BaseURL:        os.Getenv("BASE_URL") ,
 		WebhookURL:     os.Getenv("WEBHOOK_URL"),
 	}, nil
 

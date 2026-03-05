@@ -15,26 +15,26 @@ func (h *Handler) Routes() http.Handler {
 	r.Use(corsMiddleware)
 
 	// Public auth routes
-	r.Post("/api/auth/register", h.Register)
-	r.Post("/api/auth/login", h.Login)
+	r.Post("/api/auth/register", h.authHandler.Register)
+	r.Post("/api/auth/login", h.authHandler.Login)
 
 	// Protected routes — require a valid JWT
 	r.Group(func(r chi.Router) {
-		r.Use(auth.Middleware(h.container.Cfg.JWTSecret))
+		r.Use(auth.Middleware(h.JWTSecret))
 
 		// validate route for frontend
-		r.Get("/api/auth/validate", h.Validate)
+		r.Get("/api/auth/validate", h.authHandler.Validate)
 
-		r.Get("/api/accounts", h.GetAccounts)
-		r.Get("/api/transactions", h.GetTransactions)
-		r.Post("/api/budgets", h.CreateBudget)
-		r.Get("/api/budgets", h.GetBudgets)
-		r.Post("/api/plaid/exchange", h.ExchangePlaidPublicToken)
-		r.Post("/api/plaid/link-token", h.CreateLinkToken)
+		r.Get("/api/accounts", h.acctHandler.GetAccounts)
+		r.Get("/api/transactions", h.acctHandler.GetTransactions)
+		r.Post("/api/budgets", h.acctHandler.CreateBudget)
+		r.Get("/api/budgets", h.acctHandler.GetBudgets)
+		r.Post("/api/plaid/exchange", h.plaidHandler.ExchangePlaidPublicToken)
+		r.Post("/api/plaid/link-token", h.plaidHandler.CreateLinkToken)
 	})
 
 	//
-	r.Post("/plaid/webhook", h.HandleWebhook)
+	r.Post("/api/plaid/webhook", h.plaidHandler.HandleWebhook)
 	return r
 }
 
