@@ -1,15 +1,14 @@
 package dependencies
 
 import (
-	"github.com/liam-ruiz/budget/internal/bank_accounts"
-	"github.com/liam-ruiz/budget/internal/plaid_items"
-	"github.com/liam-ruiz/budget/internal/budgets"
-	"github.com/liam-ruiz/budget/internal/config"
-	"github.com/liam-ruiz/budget/internal/plaid"
+	"github.com/liam-ruiz/budgeteer/internal/bank_accounts"
+	"github.com/liam-ruiz/budgeteer/internal/budgets"
+	"github.com/liam-ruiz/budgeteer/internal/config"
+	"github.com/liam-ruiz/budgeteer/internal/plaid"
+	"github.com/liam-ruiz/budgeteer/internal/plaid_items"
 
-	"github.com/liam-ruiz/budget/internal/transactions"
-	"github.com/liam-ruiz/budget/internal/users"
-
+	"github.com/liam-ruiz/budgeteer/internal/transactions"
+	"github.com/liam-ruiz/budgeteer/internal/users"
 )
 
 type Container struct {

@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/liam-ruiz/budget/internal/db/sqlcdb"
+	"github.com/liam-ruiz/budgeteer/internal/db/sqlcdb"
 )
 
 // Repository defines the interface for user data access.

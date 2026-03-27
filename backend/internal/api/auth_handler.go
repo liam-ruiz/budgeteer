@@ -6,9 +6,9 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/liam-ruiz/budget/internal/api/types"
-	"github.com/liam-ruiz/budget/internal/auth"
-	"github.com/liam-ruiz/budget/internal/dependencies"
+	"github.com/liam-ruiz/budgeteer/internal/api/types"
+	"github.com/liam-ruiz/budgeteer/internal/auth"
+	"github.com/liam-ruiz/budgeteer/internal/dependencies"
 )
 
 // AuthHandler defines the handlers for authentication routes.
@@ -97,9 +97,9 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) Validate(w http.ResponseWriter, r *http.Request) {
-    // If the code gets here, the Middleware already verified the token!
-    // We just pull the userID out of the context.
-    userIDString := r.Context().Value("userID").(string)
+	// If the code gets here, the Middleware already verified the token!
+	// We just pull the userID out of the context.
+	userIDString := r.Context().Value("userID").(string)
 	userID, err := uuid.Parse(userIDString)
 	if err != nil {
 		log.Printf("Error parsing userID: %v\n", err)
@@ -107,14 +107,14 @@ func (h *AuthHandler) Validate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-    user, err := h.container.UserSvc.GetUser(r.Context(), userID)
-    if err != nil {
-        writeError(w, http.StatusUnauthorized, "user not found")
-        return
-    }
+	user, err := h.container.UserSvc.GetUser(r.Context(), userID)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "user not found")
+		return
+	}
 
-    writeJSON(w, http.StatusOK, types.UserResponse{
-        ID:    user.ID,
-        Email: user.Email,
-    })
+	writeJSON(w, http.StatusOK, types.UserResponse{
+		ID:    user.ID,
+		Email: user.Email,
+	})
 }

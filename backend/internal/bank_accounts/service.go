@@ -7,12 +7,11 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/liam-ruiz/budget/internal/db/sqlcdb"
-	"github.com/liam-ruiz/budget/internal/plaid"
-	"github.com/liam-ruiz/budget/internal/plaid_items"
-	"github.com/liam-ruiz/budget/internal/transactions"
-	"github.com/liam-ruiz/budget/internal/util"
-
+	"github.com/liam-ruiz/budgeteer/internal/db/sqlcdb"
+	"github.com/liam-ruiz/budgeteer/internal/plaid"
+	"github.com/liam-ruiz/budgeteer/internal/plaid_items"
+	"github.com/liam-ruiz/budgeteer/internal/transactions"
+	"github.com/liam-ruiz/budgeteer/internal/util"
 	plaidlib "github.com/plaid/plaid-go/v20/plaid"
 )
 

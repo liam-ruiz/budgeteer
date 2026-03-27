@@ -13,13 +13,13 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/liam-ruiz/budget/internal/api/types"
-	"github.com/liam-ruiz/budget/internal/auth"
-	"github.com/liam-ruiz/budget/internal/bank_accounts"
-	"github.com/liam-ruiz/budget/internal/budgets"
-	"github.com/liam-ruiz/budget/internal/db/sqlcdb"
-	"github.com/liam-ruiz/budget/internal/dependencies"
-	"github.com/liam-ruiz/budget/internal/transactions"
+	"github.com/liam-ruiz/budgeteer/internal/api/types"
+	"github.com/liam-ruiz/budgeteer/internal/auth"
+	"github.com/liam-ruiz/budgeteer/internal/bank_accounts"
+	"github.com/liam-ruiz/budgeteer/internal/budgets"
+	"github.com/liam-ruiz/budgeteer/internal/db/sqlcdb"
+	"github.com/liam-ruiz/budgeteer/internal/dependencies"
+	"github.com/liam-ruiz/budgeteer/internal/transactions"
 )
 
 type AccountHandler struct {

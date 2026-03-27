@@ -1,4 +1,4 @@
-module github.com/liam-ruiz/budget
+module github.com/liam-ruiz/budgeteer
 
 go 1.25.1
 

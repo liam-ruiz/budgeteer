@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/liam-ruiz/budget/internal/auth"
+	"github.com/liam-ruiz/budgeteer/internal/auth"
 )
 
 var (

@@ -4,8 +4,8 @@ package main
 import (
 	"log"
 
-	"github.com/liam-ruiz/budget/internal/app"
-	"github.com/liam-ruiz/budget/internal/config"
+	"github.com/liam-ruiz/budgeteer/internal/app"
+	"github.com/liam-ruiz/budgeteer/internal/config"
 )
 
 func main() {

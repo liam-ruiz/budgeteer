@@ -4,31 +4,29 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/liam-ruiz/budget/internal/api/types"
-	"github.com/liam-ruiz/budget/internal/dependencies"
+	"github.com/liam-ruiz/budgeteer/internal/api/types"
+	"github.com/liam-ruiz/budgeteer/internal/dependencies"
 )
 
 // Handler holds all service dependencies for the API.
 type Handler struct {
-	acctHandler *AccountHandler
+	acctHandler  *AccountHandler
 	plaidHandler *PlaidHandler
-	authHandler *AuthHandler
-	JWTSecret string
+	authHandler  *AuthHandler
+	JWTSecret    string
 }
-
 
 // NewHandler creates a new API handler with all service dependencies.
 func NewHandler(
 	container *dependencies.Container,
 ) *Handler {
 	return &Handler{
-		acctHandler: NewAccountHandler(container),
+		acctHandler:  NewAccountHandler(container),
 		plaidHandler: NewPlaidHandler(container),
-		authHandler: NewAuthHandler(container),
-		JWTSecret: container.Cfg.JWTSecret,
+		authHandler:  NewAuthHandler(container),
+		JWTSecret:    container.Cfg.JWTSecret,
 	}
 }
-
 
 // --- Helpers ---
 

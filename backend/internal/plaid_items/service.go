@@ -3,7 +3,7 @@ package plaid_items
 import (
 	"context"
 
-	"github.com/liam-ruiz/budget/internal/db/sqlcdb"
+	"github.com/liam-ruiz/budgeteer/internal/db/sqlcdb"
 )
 
 type Service struct {

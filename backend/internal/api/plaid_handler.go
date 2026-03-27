@@ -17,9 +17,9 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/liam-ruiz/budget/internal/api/types"
-	"github.com/liam-ruiz/budget/internal/auth"
-	"github.com/liam-ruiz/budget/internal/dependencies"
+	"github.com/liam-ruiz/budgeteer/internal/api/types"
+	"github.com/liam-ruiz/budgeteer/internal/auth"
+	"github.com/liam-ruiz/budgeteer/internal/dependencies"
 	plaidlib "github.com/plaid/plaid-go/v20/plaid"
 )
 
@@ -34,10 +34,10 @@ func NewPlaidHandler(container *dependencies.Container) *PlaidHandler {
 }
 
 var (
-	webhookTypeTransactions = "TRANSACTIONS"
-	webhookCodeItemSynced   = "SYNC_UPDATES_AVAILABLE"
-	webhookCodeItemHistorySynced  = "HISTORICAL_UPDATE"
-	webhookCodeInitialUpdate  = "INITIAL_UPDATE"
+	webhookTypeTransactions      = "TRANSACTIONS"
+	webhookCodeItemSynced        = "SYNC_UPDATES_AVAILABLE"
+	webhookCodeItemHistorySynced = "HISTORICAL_UPDATE"
+	webhookCodeInitialUpdate     = "INITIAL_UPDATE"
 )
 
 func (h *PlaidHandler) ExchangePlaidPublicToken(w http.ResponseWriter, r *http.Request) {
@@ -119,7 +119,7 @@ func (h *PlaidHandler) CreateLinkToken(w http.ResponseWriter, r *http.Request) {
 		user,
 	)
 	linkReq.SetProducts(products)
-	linkReq.SetWebhook(h.container.Cfg.WebhookURL+ "/api/plaid/webhook")
+	linkReq.SetWebhook(h.container.Cfg.WebhookURL + "/api/plaid/webhook")
 
 	resp, err := h.container.PlaidAPISvc.CreateLinkToken(r.Context(), linkReq)
 	if err != nil {
@@ -135,26 +135,26 @@ func (h *PlaidHandler) CreateLinkToken(w http.ResponseWriter, r *http.Request) {
 
 func (h *PlaidHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	signedJWT := r.Header.Get("Plaid-Verification")
-    if signedJWT == "" {
-        log.Printf("Error: missing Plaid-Verification header")
-        writeError(w, http.StatusUnauthorized, "unauthorized")
-        return
-    }
+	if signedJWT == "" {
+		log.Printf("Error: missing Plaid-Verification header")
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
 
-    // parse the JWT without verification first to get the 'kid'
-    token, _, err := new(jwt.Parser).ParseUnverified(signedJWT, jwt.MapClaims{})
-    if err != nil {
-        log.Printf("Error parsing unverified JWT: %v", err)
-        writeError(w, http.StatusBadRequest, "invalid token format")
-        return
-    }
+	// parse the JWT without verification first to get the 'kid'
+	token, _, err := new(jwt.Parser).ParseUnverified(signedJWT, jwt.MapClaims{})
+	if err != nil {
+		log.Printf("Error parsing unverified JWT: %v", err)
+		writeError(w, http.StatusBadRequest, "invalid token format")
+		return
+	}
 
-    kid, ok := token.Header["kid"].(string)
-    if !ok {
-        log.Printf("Error: JWT header missing 'kid'")
-        writeError(w, http.StatusBadRequest, "invalid token header")
-        return
-    }
+	kid, ok := token.Header["kid"].(string)
+	if !ok {
+		log.Printf("Error: JWT header missing 'kid'")
+		writeError(w, http.StatusBadRequest, "invalid token header")
+		return
+	}
 
 	// get the public key
 	resp, err := h.container.PlaidAPISvc.WebhookPublicKeyGet(r.Context(), kid)
@@ -173,13 +173,13 @@ func (h *PlaidHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 
 	// read the body for verification
 	bodyBytes, err := io.ReadAll(r.Body)
-    if err != nil {
+	if err != nil {
 		log.Printf("Error reading body: %v\n", err)
-        writeError(w, http.StatusInternalServerError, "could not read body")
-        return
-    }
-    // put the body back so we can JSON decode it later
-    r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+		writeError(w, http.StatusInternalServerError, "could not read body")
+		return
+	}
+	// put the body back so we can JSON decode it later
+	r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
 	// verify the request
 	err = verifyPlaidWebhook(r.Context(), signedJWT, *key, bodyBytes)
@@ -189,7 +189,6 @@ func (h *PlaidHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	
 	var webhook types.PlaidWebhook
 	if err := json.NewDecoder(r.Body).Decode(&webhook); err != nil {
 		log.Printf("Error decoding request body: %v\n", err)
@@ -202,7 +201,7 @@ func (h *PlaidHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 		switch webhook.WebhookCode {
 		case webhookCodeItemSynced:
 			log.Printf("Data is ready for Item: %s", webhook.PlaidItemID)
-        
+
 			go func(itemID string) {
 				// check for cursor in db, might be empty
 				cursor, err := h.container.PlaidItemSvc.GetCursor(context.Background(), itemID)
@@ -210,14 +209,14 @@ func (h *PlaidHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 					log.Printf("Error getting cursor for %s: %v", itemID, err)
 					return
 				}
-				
+
 				err = h.container.AccountSvc.SyncTransactions(context.Background(), itemID, cursor)
 				if err != nil {
 					log.Printf("Async sync failed for %s: %v", itemID, err)
 				}
-				
+
 			}(webhook.PlaidItemID)
-		
+
 		// ignore initial update and historical sync as these are for backwards compatibility
 		case webhookCodeInitialUpdate, webhookCodeItemHistorySynced:
 			log.Printf("Item updated for Item, ignoring: %s", webhook.PlaidItemID)
@@ -235,50 +234,50 @@ func (h *PlaidHandler) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 }
 
 func verifyPlaidWebhook(ctx context.Context, signedJWT string, key plaidlib.JWKPublicKey, bodyBytes []byte) error {
-    // convert Plaid's JWK response to an ECDSA Public Key
-    // plaid returns x and y coordinates in base64url
-    pubKey, err := parsePlaidKey(key)
-    if err != nil {
-        return err
-    }
+	// convert Plaid's JWK response to an ECDSA Public Key
+	// plaid returns x and y coordinates in base64url
+	pubKey, err := parsePlaidKey(key)
+	if err != nil {
+		return err
+	}
 
 	parser := jwt.NewParser(jwt.WithLeeway(5 * time.Minute))
 
-    // fully verify the JWT signature
-    parsedToken, err := parser.Parse(signedJWT, func(t *jwt.Token) (any, error) {
-        return pubKey, nil
-    })
-    if err != nil || !parsedToken.Valid {
+	// fully verify the JWT signature
+	parsedToken, err := parser.Parse(signedJWT, func(t *jwt.Token) (any, error) {
+		return pubKey, nil
+	})
+	if err != nil || !parsedToken.Valid {
 		if err != nil {
 			log.Printf("Error parsing JWT: %v\n", err)
 		}
-        return fmt.Errorf("invalid jwt signature")
-    }
+		return fmt.Errorf("invalid jwt signature")
+	}
 
-    // verify the body hash
-    claims := parsedToken.Claims.(jwt.MapClaims)
-    claimedHash := claims["request_body_sha256"].(string)
-    
-    actualHash := sha256.Sum256(bodyBytes)
-    actualHashStr := hex.EncodeToString(actualHash[:])
+	// verify the body hash
+	claims := parsedToken.Claims.(jwt.MapClaims)
+	claimedHash := claims["request_body_sha256"].(string)
 
-    if claimedHash != actualHashStr {
-        return fmt.Errorf("body hash mismatch")
-    }
+	actualHash := sha256.Sum256(bodyBytes)
+	actualHashStr := hex.EncodeToString(actualHash[:])
 
-    return nil
+	if claimedHash != actualHashStr {
+		return fmt.Errorf("body hash mismatch")
+	}
+
+	return nil
 }
 
 func parsePlaidKey(jwk plaidlib.JWKPublicKey) (*ecdsa.PublicKey, error) {
-    xBytes, err := base64.RawURLEncoding.DecodeString(jwk.X)
-    yBytes, err := base64.RawURLEncoding.DecodeString(jwk.Y)
-    if err != nil {
-        return nil, err
-    }
+	xBytes, err := base64.RawURLEncoding.DecodeString(jwk.X)
+	yBytes, err := base64.RawURLEncoding.DecodeString(jwk.Y)
+	if err != nil {
+		return nil, err
+	}
 
-    return &ecdsa.PublicKey{
-        Curve: elliptic.P256(),
-        X:     new(big.Int).SetBytes(xBytes),
-        Y:     new(big.Int).SetBytes(yBytes),
-    }, nil
+	return &ecdsa.PublicKey{
+		Curve: elliptic.P256(),
+		X:     new(big.Int).SetBytes(xBytes),
+		Y:     new(big.Int).SetBytes(yBytes),
+	}, nil
 }
