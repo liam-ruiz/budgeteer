@@ -14,6 +14,7 @@ type Repository interface {
 	CreateBankAccount(ctx context.Context, params sqlcdb.CreateBankAccountParams) (sqlcdb.BankAccount, error)
 	GetByUserID(ctx context.Context, userID uuid.UUID) ([]sqlcdb.BankAccount, error)
 	GetByPlaidAccountID(ctx context.Context, plaidAccountID string) (sqlcdb.GetBankAccountByPlaidAccountIDRow, error)
+	GetPlaidItemsByUserID(ctx context.Context, userID uuid.UUID) ([]sqlcdb.PlaidItem, error)
 	GetPlaidItemByPlaidItemID(ctx context.Context, plaidItemID string) (sqlcdb.PlaidItem, error)
 	UpdateBalance(ctx context.Context, params sqlcdb.UpdateBankAccountBalanceParams) error
 	UpsertBankAccount(ctx context.Context, params sqlcdb.UpsertBankAccountParams) (sqlcdb.BankAccount, error)
@@ -48,6 +49,10 @@ func (r *repository) GetByUserID(ctx context.Context, userID uuid.UUID) ([]sqlcd
 
 func (r *repository) GetByPlaidAccountID(ctx context.Context, plaidAccountID string) (sqlcdb.GetBankAccountByPlaidAccountIDRow, error) {
 	return r.q.GetBankAccountByPlaidAccountID(ctx, plaidAccountID)
+}
+
+func (r *repository) GetPlaidItemsByUserID(ctx context.Context, userID uuid.UUID) ([]sqlcdb.PlaidItem, error) {
+	return r.q.GetPlaidItemsByUserID(ctx, userID)
 }
 
 func (r *repository) GetPlaidItemByPlaidItemID(ctx context.Context, plaidItemID string) (sqlcdb.PlaidItem, error) {

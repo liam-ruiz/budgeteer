@@ -3,7 +3,9 @@ package bank_accounts
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -153,6 +155,73 @@ func (s *Service) LinkNewItem(ctx context.Context, appUserID uuid.UUID, plaidIte
 			return err
 		}
 	}
+	return nil
+}
+
+func (s *Service) SyncLinkedAccounts(ctx context.Context, userID uuid.UUID) error {
+	items, err := s.repo.GetPlaidItemsByUserID(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if len(items) == 0 {
+		return nil
+	}
+
+	var wg sync.WaitGroup
+	errCh := make(chan error, len(items))
+	for _, item := range items {
+		item := item
+		wg.Go(func() {
+
+			if err := s.refreshAccounts(ctx, item); err != nil {
+				errCh <- fmt.Errorf("refresh accounts for item %s: %w", item.PlaidItemID, err)
+				return
+			}
+
+			cursor := ""
+			if item.PlaidCursor.Valid {
+				cursor = item.PlaidCursor.String
+			}
+			if err := s.SyncTransactions(ctx, item.PlaidItemID, cursor); err != nil {
+				errCh <- fmt.Errorf("sync transactions for item %s: %w", item.PlaidItemID, err)
+			}
+		})
+	}
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Service) refreshAccounts(ctx context.Context, item sqlcdb.PlaidItem) error {
+	accountsReq := plaidlib.NewAccountsGetRequest(item.PlaidAccessToken)
+	accountsResp, err := s.plaidApiSvc.GetAccounts(ctx, accountsReq)
+	if err != nil {
+		return err
+	}
+
+	for _, acc := range accountsResp.GetAccounts() {
+		balance := acc.GetBalances()
+		_, err := s.repo.UpsertBankAccount(ctx, sqlcdb.UpsertBankAccountParams{
+			PlaidItemID:      item.PlaidItemID,
+			PlaidAccountID:   acc.GetAccountId(),
+			AccountName:      acc.GetName(),
+			OfficialName:     pgtype.Text{String: acc.GetOfficialName(), Valid: acc.OfficialName.IsSet()},
+			AccountType:      string(acc.GetType()),
+			AccountSubtype:   pgtype.Text{String: string(acc.GetSubtype()), Valid: acc.Subtype.IsSet()},
+			CurrentBalance:   util.Float64ToNumeric(balance.GetCurrent()),
+			AvailableBalance: util.Float64ToNumeric(balance.GetAvailable()),
+			IsoCurrencyCode:  acc.Balances.GetIsoCurrencyCode(),
+		})
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

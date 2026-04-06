@@ -1,0 +1,167 @@
+<div class="animate-in">
+    <div class="page-header report-header">
+        <div>
+            <h1>Reports</h1>
+            <p>Sankey view of how spending flowed from month to category over time.</p>
+        </div>
+
+        <div class="period-field">
+            <label for="report-period">Time frame</label>
+            <select
+                id="report-period"
+                class="period-select"
+                [ngModel]="selectedPeriod()"
+                (ngModelChange)="setPeriodFromValue($event)"
+            >
+                @for (period of periodOptions; track period) {
+                <option [ngValue]="period">Past {{ period }} months</option>
+                }
+            </select>
+        </div>
+    </div>
+
+    @if (loading()) {
+    <div class="empty-state card">
+        <p>Loading report data…</p>
+    </div>
+    } @else if (!report().hasData) {
+    <div class="empty-state card">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 3v18h18" />
+            <path d="m7 13 4-4 3 3 5-6" />
+        </svg>
+        <p>No cleared spending to chart for {{ selectedPeriod() }} months.</p>
+        <p class="empty-copy">Once transactions land in that window, the category flow will show up here.</p>
+    </div>
+    } @else {
+    <div class="stats-grid report-stats">
+        <div class="stat-card">
+            <div class="stat-label">Total Spend</div>
+            <div class="stat-value">{{ report().totalSpendLabel }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Average Per Month</div>
+            <div class="stat-value">{{ report().averageMonthlySpendLabel }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Top Category</div>
+            <div class="stat-value stat-value-compact">{{ report().topCategoryLabel }}</div>
+            <div class="stat-footnote">{{ report().topCategoryAmountLabel }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Transactions Included</div>
+            <div class="stat-value">{{ report().includedTransactionCount }}</div>
+            <div class="stat-footnote">{{ report().activeMonthSummary }}</div>
+        </div>
+    </div>
+
+    <div class="reports-grid">
+        <section class="card report-chart-card">
+            <div class="card-header">
+                <div>
+                    <h2>Spending Flow</h2>
+                    <p class="card-subtitle">{{ report().rangeLabel }}</p>
+                </div>
+                <span class="badge badge-accent">{{ report().categoryCount }} category streams</span>
+            </div>
+
+            <div class="sankey-frame">
+                <svg
+                    class="sankey-chart"
+                    [attr.viewBox]="'0 0 1120 ' + report().chartHeight"
+                    preserveAspectRatio="xMidYMid meet"
+                    aria-label="Sankey diagram showing spending by month and category"
+                >
+                    @for (link of report().links; track link.id) {
+                    <path
+                        class="sankey-link"
+                        [attr.d]="link.path"
+                        [attr.stroke]="link.color"
+                        [attr.stroke-width]="link.thickness"
+                        stroke-linecap="butt"
+                        fill="none"
+                    >
+                        <title>{{ link.sourceLabel }} → {{ link.targetLabel }}: {{ link.amountLabel }}</title>
+                    </path>
+                    }
+
+                    @if (report().sourceNode; as node) {
+                    <g class="sankey-node">
+                        <rect
+                            [attr.x]="node.x"
+                            [attr.y]="node.y"
+                            [attr.width]="node.width"
+                            [attr.height]="node.height"
+                            [attr.fill]="node.color"
+                            rx="10"
+                        />
+                        <text class="sankey-label sankey-label-month" [attr.x]="node.x - 16" [attr.y]="node.y + 18">
+                            {{ node.label }}
+                        </text>
+                        <text class="sankey-value sankey-label-month" [attr.x]="node.x - 16" [attr.y]="node.y + 38">
+                            {{ node.amountLabel }}
+                        </text>
+                        <text class="sankey-value sankey-label-month" [attr.x]="node.x - 16" [attr.y]="node.y + 58">
+                            {{ node.secondaryLabel }}
+                        </text>
+                    </g>
+                    }
+
+                    @for (node of report().categoryNodes; track node.id) {
+                    <g class="sankey-node">
+                        <rect
+                            [attr.x]="node.x"
+                            [attr.y]="node.y"
+                            [attr.width]="node.width"
+                            [attr.height]="node.height"
+                            [attr.fill]="node.color"
+                            rx="10"
+                        />
+                        <text class="sankey-label" [attr.x]="node.x + node.width + 16" [attr.y]="node.y + 18">
+                            {{ node.label }}
+                        </text>
+                        <text class="sankey-value" [attr.x]="node.x + node.width + 16" [attr.y]="node.y + 38">
+                            {{ node.amountLabel }}
+                        </text>
+                    </g>
+                    }
+                </svg>
+            </div>
+        </section>
+
+        <section class="card report-breakdown-card">
+            <div class="card-header">
+                <div>
+                    <h2>Category Breakdown</h2>
+                    <p class="card-subtitle">Share of selected-period spending</p>
+                </div>
+            </div>
+
+            <div class="breakdown-list">
+                @for (item of report().breakdown; track item.id) {
+                <div class="breakdown-row">
+                    <div class="breakdown-row-top">
+                        <div class="breakdown-title">
+                            <span class="breakdown-swatch" [style.background]="item.color"></span>
+                            <span>{{ item.label }}</span>
+                        </div>
+                        <div class="breakdown-metrics">
+                            <span>{{ item.amountLabel }}</span>
+                            <span>{{ item.shareLabel }}</span>
+                        </div>
+                    </div>
+                    <div class="breakdown-bar">
+                        <div
+                            class="breakdown-bar-fill"
+                            [style.width.%]="item.share"
+                            [style.background]="item.color"
+                        ></div>
+                    </div>
+                </div>
+                }
+            </div>
+        </section>
+    </div>
+    }
+</div>

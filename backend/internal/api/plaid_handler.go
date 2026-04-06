@@ -64,10 +64,10 @@ func (h *PlaidHandler) ExchangePlaidPublicToken(w http.ResponseWriter, r *http.R
 	accessToken := resp.GetAccessToken()
 	plaidItemID := resp.GetItemId()
 
-	// fetch metadata for this Item
+	// fetch metadata for this Item via Plaid /accounts/get
 	// best to get the account details immediately so the user sees them.
 	accountsReq := plaidlib.NewAccountsGetRequest(accessToken)
-	accountsResp, err := h.container.PlaidAPISvc.GetAccountInfo(r.Context(), accountsReq)
+	accountsResp, err := h.container.PlaidAPISvc.GetAccounts(r.Context(), accountsReq)
 	if err != nil {
 		log.Printf("[ExchangePlaidPublicToken] failed to fetch account details: %v", err)
 		writeError(w, http.StatusBadGateway, "failed to fetch account details")

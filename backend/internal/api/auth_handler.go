@@ -1,11 +1,11 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
 
-	"github.com/google/uuid"
 	"github.com/liam-ruiz/budgeteer/internal/api/types"
 	"github.com/liam-ruiz/budgeteer/internal/auth"
 	"github.com/liam-ruiz/budgeteer/internal/dependencies"
@@ -87,6 +87,12 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	go func() {
+		if err := h.container.AccountSvc.SyncLinkedAccounts(context.Background(), user.ID); err != nil {
+			log.Printf("[Login] failed to sync linked accounts for user %s: %v", user.ID, err)
+		}
+	}()
+
 	writeJSON(w, http.StatusOK, types.AuthResponse{
 		Token: token,
 		User: types.UserResponse{
@@ -97,12 +103,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) Validate(w http.ResponseWriter, r *http.Request) {
-	// If the code gets here, the Middleware already verified the token!
-	// We just pull the userID out of the context.
-	userIDString := r.Context().Value("userID").(string)
-	userID, err := uuid.Parse(userIDString)
+	userID, err := auth.GetUserID(r.Context())
 	if err != nil {
-		log.Printf("Error parsing userID: %v\n", err)
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}

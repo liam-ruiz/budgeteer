@@ -55,7 +55,7 @@ func (s *Service) ExchangePublicToken(ctx context.Context, req *plaidlib.ItemPub
 	return resp, nil
 }
 
-func (s *Service) GetAccountInfo(ctx context.Context, req *plaidlib.AccountsGetRequest) (plaidlib.AccountsGetResponse, error) {
+func (s *Service) GetAccounts(ctx context.Context, req *plaidlib.AccountsGetRequest) (plaidlib.AccountsGetResponse, error) {
 	resp, _, err := s.client.PlaidApi.
 		AccountsGet(ctx).
 		AccountsGetRequest(*req).
@@ -67,7 +67,7 @@ func (s *Service) GetAccountInfo(ctx context.Context, req *plaidlib.AccountsGetR
 			err = fmt.Errorf("plaid api error: %w", errors.New(string(nerr.Body())))
 			return plaidlib.AccountsGetResponse{}, err
 		}
-		log.Printf("Error getting account info: %v\n", err)
+		log.Printf("Error getting accounts: %v\n", err)
 		return plaidlib.AccountsGetResponse{}, err
 	}
 	return resp, nil

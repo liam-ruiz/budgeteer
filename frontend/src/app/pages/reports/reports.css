@@ -1,0 +1,200 @@
+.report-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.period-field {
+    width: min(15rem, 100%);
+}
+
+.report-stats {
+    margin-bottom: 1.25rem;
+}
+
+.stat-value-compact {
+    font-size: 1.25rem;
+    line-height: 1.2;
+}
+
+.stat-footnote {
+    margin-top: 0.35rem;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+}
+
+.reports-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.9fr);
+    gap: 1.25rem;
+    align-items: start;
+}
+
+.report-chart-card,
+.report-breakdown-card {
+    min-height: 100%;
+}
+
+.card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.card-header h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.card-subtitle {
+    margin-top: 0.25rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.sankey-frame {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 0.25rem;
+}
+
+.sankey-chart {
+    width: 100%;
+    min-width: 980px;
+    display: block;
+}
+
+.sankey-link {
+    transition: opacity 0.15s ease;
+}
+
+.sankey-chart:hover .sankey-link {
+    opacity: 0.45;
+}
+
+.sankey-chart:hover .sankey-link:hover {
+    opacity: 1;
+}
+
+.sankey-node rect {
+    stroke: rgba(255, 255, 255, 0.22);
+    stroke-width: 1;
+}
+
+.sankey-label,
+.sankey-value {
+    font-size: 13px;
+    fill: var(--text-primary);
+}
+
+.sankey-label {
+    font-weight: 700;
+}
+
+.sankey-value {
+    fill: var(--text-muted);
+}
+
+.sankey-label-month {
+    text-anchor: end;
+}
+
+.breakdown-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.breakdown-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.breakdown-row-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.breakdown-title {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-width: 0;
+    color: var(--text-primary);
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.breakdown-title span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.breakdown-swatch {
+    width: 0.8rem;
+    height: 0.8rem;
+    border-radius: 9999px;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.05);
+    flex-shrink: 0;
+}
+
+.breakdown-metrics {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-shrink: 0;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.breakdown-bar {
+    height: 0.7rem;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+}
+
+.breakdown-bar-fill {
+    min-width: 6px;
+    height: 100%;
+    border-radius: inherit;
+}
+
+.empty-copy {
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+}
+
+@media (max-width: 1100px) {
+    .reports-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .report-header,
+    .card-header,
+    .breakdown-row-top {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .period-field {
+        width: 100%;
+    }
+
+    .breakdown-metrics {
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+}
